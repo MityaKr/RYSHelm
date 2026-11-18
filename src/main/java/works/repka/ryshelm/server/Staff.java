@@ -101,7 +101,10 @@ public final class Staff {
             if (!e.getValue().by.equals(p.getUUID())) continue;
             it.remove();
             ServerPlayer target = p.server.getPlayerList().getPlayer(e.getKey());
-            if (target != null) Sync.notice(target, "freeze", "row", "SNOW", "Заморозка снята", "", false);
+            if (target != null) {
+                Sync.notice(target, "freeze", "row", "SNOW", "Заморозка снята", "", false);
+                Sync.hello(target);
+            }
             Helm.log("unfreeze", p.getUUID(), p.getGameProfile().getName(), e.getKey(), Helm.data().name(e.getKey()), "", "модератор вышел");
         }
     }
@@ -170,11 +173,13 @@ public final class Staff {
         if (FROZEN.remove(target.getUUID()) != null) {
             Helm.log("unfreeze", mod, target.getUUID(), name, "", "");
             Sync.notice(target, "freeze", "row", "SNOW", "Заморозка снята", "", false);
+            Sync.hello(target);
             return name + " разморожен";
         }
         FROZEN.put(target.getUUID(), new Frozen(mod.getUUID(), mod.getGameProfile().getName(), target.level().dimension(), target.getX(), target.getY(), target.getZ()));
         Helm.log("freeze", mod, target.getUUID(), name, "", Sync.where(target));
         Sync.notice(target, "freeze", "card", "SNOW", "Вас заморозил модератор", mod.getGameProfile().getName() + " · стойте на месте, он скоро ответит", true);
+        Sync.hello(target);
         return name + " заморожен";
     }
 

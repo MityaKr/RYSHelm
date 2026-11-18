@@ -52,7 +52,7 @@ public final class ServerScreen extends ScaledScreen {
     static int sort;
     static String journalCat = "";
     static int journalDays = 7;
-    static long report;
+    public static long report;
 
     final Kit.Hits hits = new Kit.Hits();
     int mx, my, px, py;
@@ -824,6 +824,11 @@ public final class ServerScreen extends ScaledScreen {
         reason.setValue("");
         customTerm.setValue("");
         request();
+    }
+
+    /** Форма жалобы игрока справа (макет 14). */
+    public void reportForm(UUID target, String name) {
+        reports.openForm(target, name);
     }
 
     public void closePunish() {

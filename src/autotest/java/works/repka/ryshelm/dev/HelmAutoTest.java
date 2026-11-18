@@ -349,6 +349,12 @@ public final class HelmAutoTest {
         step("журнал пришёл", () -> check("в журнале есть записи", works.repka.ryshelm.client.View.journal.getList("entries", 10).size() >= 9), 2);
     }
 
+    static List<HelmData.Report> reportsOf(String from) {
+        List<HelmData.Report> out = new ArrayList<>();
+        for (HelmData.Report r : Helm.data().reports) if (r.fromName.equals(from)) out.add(r);
+        return out;
+    }
+
     static boolean gatePending() {
         return Gate.pending(player().getUUID());
     }

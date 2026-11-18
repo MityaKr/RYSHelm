@@ -26,6 +26,8 @@ public final class HelmClient {
     private static boolean rulesShown;
     /** Автотест: роль и права не берутся из приветствия (снимок «глазами игрока», макет 14). */
     public static boolean pinned;
+    /** Последние уведомления с сервера (id): для автотестов и двух клиентов. */
+    public static final java.util.List<String> RECENT = new java.util.ArrayList<>();
 
     private HelmClient() {}
 
@@ -83,10 +85,18 @@ public final class HelmClient {
         boolean pending = t.getBoolean("rulesPending");
         Roles.setClient(role);
         Actions.changed();
+        if (pending && !rulesShown) {
+            rulesShown = true;
+            rulesPending = true;
+            RulesScreen.request();
+        }
+        if (!pending) rulesShown = false;
         rulesPending = pending;
     }
 
     static void notice(CompoundTag t) {
+        RECENT.add(t.getString("id"));
+        if (RECENT.size() > 50) RECENT.remove(0);
         String kind = t.getString("kind");
         Notice n = "card".equals(kind) ? Notice.card(Notice.HELM, t.getString("id")) : Notice.row(Notice.HELM, t.getString("id"));
         n.icon(shape(t.getString("icon"))).title(t.getString("title"));
@@ -94,7 +104,7 @@ public final class HelmClient {
         if (t.getBoolean("bad")) n.bad();
         switch (t.getString("id")) {
             case "report_new", "reports" -> n.key(ClientEntry::keyName).action(() -> ServerScreen.open("reports"));
-            case "rules" -> n.key(ClientEntry::keyName).action(() -> ServerScreen.open("rules"));
+            case "rules" -> n.key(ClientEntry::keyName).action(RulesScreen::request);
             default -> {}
         }
         n.show();

@@ -14,10 +14,13 @@ public final class View {
     public static @Nullable CompoundTag card, punish;
     /** Растёт с каждым ответом: окно перечитывает свои списки. */
     public static int version;
+    /** Автотест: данные окна не перезаписываются сервером (снимок с данными макета). */
+    public static boolean pinned;
 
     private View() {}
 
     static void accept(CompoundTag t) {
+        if (pinned) return;
         String tab = t.getString("tab");
         switch (tab) {
             case "players" -> players = t;
@@ -34,7 +37,7 @@ public final class View {
     }
 
     /** Подписаться на вкладку и, если нужно, на карточку игрока, жалобу, окно наказания и фильтр журнала. */
-    static void request(String tab, @Nullable UUID card, @Nullable UUID punish, long report, String who, int days, String cat) {
+    public static void request(String tab, @Nullable UUID card, @Nullable UUID punish, long report, String who, int days, String cat) {
         CompoundTag a = new CompoundTag();
         a.putString("tab", tab);
         if (card != null) a.putUUID("card", card);

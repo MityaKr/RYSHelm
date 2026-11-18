@@ -101,6 +101,12 @@ public final class Chat {
             Gate.remind(p);
             return;
         }
+        String newbie = Gate.summonDenied(p, parse.getReader().getString());
+        if (newbie != null) {
+            e.setCanceled(true);
+            Sync.notice(p, "newbie", "row", "USERS", newbie, "", true);
+            return;
+        }
         if (MESSAGE_COMMANDS.contains(root)) {
             HelmData.Punishment mute = Punish.muted(p.getUUID());
             if (mute != null) {

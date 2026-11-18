@@ -50,7 +50,7 @@ public final class Gate {
     }
 
     /** Включили правила или поменяли их текст: всем в сети, кто не принял эту версию, открыть окно. */
-    static void settingsChanged(MinecraftServer server) {
+    public static void settingsChanged(MinecraftServer server) {
         for (ServerPlayer p : server.getPlayerList().getPlayers()) {
             HelmData.PlayerInfo info = Helm.data().player(p.getUUID(), p.getGameProfile().getName());
             boolean need = needs(info);
@@ -76,7 +76,29 @@ public final class Gate {
         Long last = REMINDED.get(p.getUUID());
         if (last != null && now - last < 5000) return;
         REMINDED.put(p.getUUID(), now);
-        Sync.notice(p, "rules", "row", "BOOK", "Примите правила сервера", "окно «Сервер», вкладка «Правила»", true);
+        Sync.notice(p, "rules", "row", "BOOK", "Примите правила сервера", "клик откроет правила", true);
+    }
+
+    /**
+     * Новичок (план 5.7): первые N часов его нельзя звать к себе кроме своей команды. Ловит команду {@code /tpahere} в любом
+     * виде ({@code /tpahere Имя}, {@code /rys place tpahere Имя}): её дают и FTB Essentials, и «Места» карты. Запрос из окна
+     * карты идёт не командой, его закрыть нечем (нужен контракт ядра, см. отчёт А3).
+     * @return причина отказа или null
+     */
+    static String summonDenied(ServerPlayer from, String command) {
+        if (Helm.settings().newbieHours <= 0 || works.repka.ryscore.perm.Roles.atLeast(from, works.repka.ryscore.perm.Roles.MODERATOR)) return null;
+        String[] w = command.strip().replaceFirst("^/", "").split("\\s+");
+        for (int i = 0; i + 1 < w.length; i++) {
+            String word = w[i].contains(":") ? w[i].substring(w[i].indexOf(':') + 1) : w[i];
+            if (!word.equalsIgnoreCase("tpahere")) continue;
+            ServerPlayer target = from.server.getPlayerList().getPlayerByName(w[i + 1]);
+            if (target == null || target == from || !newbie(target)) return null;
+            var teams = works.repka.ryscore.team.TeamsApi.get();
+            if (teams.teamOf(target.getUUID()).equals(teams.teamOf(from.getUUID()))) return null;
+            return target.getGameProfile().getName() + " новичок: первые " + Term.plural(Helm.settings().newbieHours, "час", "часа", "часов")
+                + " звать к себе может только его команда";
+        }
+        return null;
     }
 
     /** Общий обработчик событий действия: строить, ломать, открывать, бить, телепорт. */
