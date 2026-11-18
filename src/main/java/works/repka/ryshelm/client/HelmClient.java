@@ -24,6 +24,8 @@ public final class HelmClient {
     public static long mutedUntil;
     public static int reports;
     private static boolean rulesShown;
+    /** Автотест: роль и права не берутся из приветствия (снимок «глазами игрока», макет 14). */
+    public static boolean pinned;
 
     private HelmClient() {}
 
@@ -55,15 +57,19 @@ public final class HelmClient {
         switch (t.getString("type")) {
             case "hello" -> hello(t);
             case "notice" -> notice(t);
+            case "view" -> View.accept(t);
+            case "open" -> ServerScreen.open(null);
             default -> {}
         }
     }
 
     static void hello(CompoundTag t) {
         present = true;
-        role = t.getString("role");
-        PERMS.clear();
-        for (Tag x : t.getList("perms", Tag.TAG_STRING)) PERMS.add(x.getAsString());
+        if (!pinned) {
+            role = t.getString("role");
+            PERMS.clear();
+            for (Tag x : t.getList("perms", Tag.TAG_STRING)) PERMS.add(x.getAsString());
+        }
         server = t.getString("server");
         fly = t.getBoolean("fly");
         god = t.getBoolean("god");
@@ -86,6 +92,11 @@ public final class HelmClient {
         n.icon(shape(t.getString("icon"))).title(t.getString("title"));
         if (!t.getString("line").isEmpty()) n.lines(t.getString("line"));
         if (t.getBoolean("bad")) n.bad();
+        switch (t.getString("id")) {
+            case "report_new", "reports" -> n.key(ClientEntry::keyName).action(() -> ServerScreen.open("reports"));
+            case "rules" -> n.key(ClientEntry::keyName).action(() -> ServerScreen.open("rules"));
+            default -> {}
+        }
         n.show();
     }
 
