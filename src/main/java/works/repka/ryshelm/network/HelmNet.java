@@ -61,6 +61,12 @@ public final class HelmNet {
         static void accept(CompoundTag data) {
             works.repka.ryshelm.client.HelmClient.accept(data);
         }
+
+        /** Сервер без RYSHelm канала не знает: туда ничего не шлём. */
+        static boolean serverHas() {
+            var c = net.minecraft.client.Minecraft.getInstance().getConnection();
+            return c != null && c.hasChannel(Action.TYPE);
+        }
     }
 
     public static void send(ServerPlayer player, CompoundTag data) {
@@ -68,6 +74,6 @@ public final class HelmNet {
     }
 
     public static void action(String action, CompoundTag args) {
-        PacketDistributor.sendToServer(new Action(action, args));
+        if (Client.serverHas()) PacketDistributor.sendToServer(new Action(action, args));
     }
 }
