@@ -35,6 +35,7 @@ public final class Requests {
                 case "note" -> note(p, a);
                 case "tp" -> need(p, HelmPerms.TP, () -> online(server, a, t -> Staff.tp(p, t)));
                 case "tphere" -> need(p, HelmPerms.TP, () -> online(server, a, t -> Staff.tphere(p, t)));
+                case "tplast" -> need(p, HelmPerms.TP, () -> Staff.tpLast(p, a.getUUID("target")));
                 case "tp_spot" -> need(p, HelmPerms.TP, () -> tpSpot(p, a));
                 case "spectate" -> need(p, HelmPerms.SPECTATE, () -> online(server, a, t -> Staff.spectate(p, t)));
                 case "spectate_return" -> Staff.unspectate(p);

@@ -66,6 +66,42 @@ public final class Staff {
         return null;
     }
 
+    /** «К месту, где видели» (план 6, {@code /teleport_last}, {@code /tp_offline}): последнее место игрока вне сети. */
+    public static @Nullable String tpLast(ServerPlayer mod, UUID target) {
+        ServerPlayer online = mod.server.getPlayerList().getPlayer(target);
+        if (online != null) return tp(mod, online);
+        HelmData.PlayerInfo info = Helm.data().players.get(target);
+        if (info == null || info.lastPos == null) return "Где видели " + Helm.data().name(target) + ", неизвестно";
+        String err = to(mod, info.lastPos.dim, info.lastPos.x, info.lastPos.y, info.lastPos.z, true);
+        if (err == null) Helm.log("tp", mod, target, info.name, "", "где видели · @" + info.lastPos.dim + " " + info.lastPos.coords());
+        return err;
+    }
+
+    /** {@code /tpx <измерение>}: те же координаты в другом измерении, посадка безопасная. */
+    public static @Nullable String tpx(ServerPlayer op, String dim) {
+        String err = to(op, dim, op.getX(), op.getY(), op.getZ(), false);
+        if (err == null) Helm.log("tp", op, null, "", "", "@" + dim + " " + Helm.spot(op).coords());
+        return err;
+    }
+
+    /** {@code /jump}: на блок под прицелом до 256 блоков. */
+    public static @Nullable String jump(ServerPlayer op) {
+        var hit = op.pick(256, 1f, false);
+        if (!(hit instanceof net.minecraft.world.phys.BlockHitResult b) || hit.getType() == net.minecraft.world.phys.HitResult.Type.MISS) return "Под прицелом нет блока ближе 256";
+        var pos = b.getBlockPos().relative(b.getDirection());
+        return to(op, op.level().dimension().location().toString(), pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5, false);
+    }
+
+    /** Перенос персонала через {@code TravelApi}: без паузы и привата, с историей «назад». */
+    static @Nullable String to(ServerPlayer p, String dim, double x, double y, double z, boolean safe) {
+        ServerLevel level = level(p.server, dim);
+        if (level == null) return "Измерение не загружено: " + dim;
+        var trip = TravelApi.Trip.to(TravelApi.Spot.of(level, x, y, z)).reason(TravelApi.Reason.STAFF).skipCooldown().skipWarmup().skipClaims();
+        if (!safe) trip.skipSafeSpot();
+        TravelApi.Result r = TravelApi.get().teleport(p, trip.build());
+        return r.status() == TravelApi.Status.DENIED ? r.message().getString() : null;
+    }
+
     /** «Переставить»: игрок вне сети окажется у оператора при следующем входе. */
     public static @Nullable String move(ServerPlayer op, UUID target, String name) {
         if (op.server.getPlayerList().getPlayer(target) != null) return name + " в сети: «Позвать к себе»";

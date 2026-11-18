@@ -767,7 +767,7 @@ public final class ServerScreen extends ScaledScreen {
         }
         if (online && !self) Ui.primary(g, t, hits, x, y, w, 20, Icons.Shape.TELEPORT, "К игроку", mx, my, HelmClient.can("ryshelm.tp") ? () -> HelmClient.onTarget("tp", id) : null);
         else if (self) Ui.primary(g, t, hits, x, y, w, 20, Icons.Shape.USER, "Это вы", mx, my, null);
-        else Ui.primary(g, t, hits, x, y, w, 20, Icons.Shape.CLOCK, "Не в сети · был " + Words.ago(c.getLong("seen")), mx, my, null);
+        else Ui.primary(g, t, hits, x, y, w, 20, Icons.Shape.TELEPORT, "К месту, где видели", mx, my, c.contains("dim") && HelmClient.can("ryshelm.tp") ? () -> HelmClient.onTarget("tplast", id) : null);
         y += 24;
         int bw = (w - 6) / 3, bh = 14;
         boolean target = online && !self;

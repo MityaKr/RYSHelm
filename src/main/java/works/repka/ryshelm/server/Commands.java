@@ -109,6 +109,13 @@ public final class Commands {
         m.put("tp", () -> onPlayer("tp", HelmPerms.TP, (s, t) -> Staff.tp(s.getPlayerOrException(), t)));
         m.put("tphere", () -> onPlayer("tphere", HelmPerms.TP, (s, t) -> Staff.tphere(s.getPlayerOrException(), t)));
         m.put("spectate", () -> onPlayer("spectate", HelmPerms.SPECTATE, (s, t) -> Staff.spectate(s.getPlayerOrException(), t)));
+        m.put("tplast", () -> literal("tplast").requires(s -> Helm.can(s, HelmPerms.TP)).then(argument("player", GameProfileArgument.gameProfile()).executes(c -> {
+            GameProfile gp = profile(c);
+            return result(c.getSource(), Staff.tpLast(c.getSource().getPlayerOrException(), gp.getId()), "");
+        })));
+        m.put("tpx", () -> literal("tpx").requires(s -> Helm.can(s, HelmPerms.CHEAT)).then(argument("dimension", net.minecraft.commands.arguments.DimensionArgument.dimension()).executes(c ->
+            result(c.getSource(), Staff.tpx(c.getSource().getPlayerOrException(), net.minecraft.commands.arguments.DimensionArgument.getDimension(c, "dimension").dimension().location().toString()), ""))));
+        m.put("jump", () -> literal("jump").requires(s -> Helm.can(s, HelmPerms.CHEAT)).executes(c -> result(c.getSource(), Staff.jump(c.getSource().getPlayerOrException()), "")));
         m.put("back", () -> literal("back").requires(s -> Helm.can(s, HelmPerms.SPECTATE)).executes(c -> result(c.getSource(), Staff.unspectate(c.getSource().getPlayerOrException()), "Вернулись на место")));
         m.put("freeze", () -> literal("freeze").requires(s -> Helm.can(s, HelmPerms.FREEZE)).then(argument("player", EntityArgument.player()).executes(c ->
             ok(c.getSource(), Staff.freeze(c.getSource().getPlayerOrException(), EntityArgument.getPlayer(c, "player"))))));
