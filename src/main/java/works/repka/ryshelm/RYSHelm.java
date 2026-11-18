@@ -20,9 +20,11 @@ import net.neoforged.neoforge.event.server.ServerStoppingEvent;
 import net.neoforged.neoforge.event.tick.ServerTickEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import works.repka.ryscore.migrate.Migrations;
 import works.repka.ryscore.perm.Perms;
 import works.repka.ryscore.perm.Roles;
 import works.repka.ryshelm.network.HelmNet;
+import works.repka.ryshelm.server.AdminMigration;
 import works.repka.ryshelm.server.Chat;
 import works.repka.ryshelm.server.Commands;
 import works.repka.ryshelm.server.Gate;
@@ -42,6 +44,7 @@ public final class RYSHelm {
         HelmPerms.init();
         Roles.provide(Helm::roleOf);
         Perms.policy(Helm::decide);
+        Migrations.register(new AdminMigration());
         modBus.addListener(HelmNet::register);
         if (FMLEnvironment.dist.isClient()) works.repka.ryshelm.client.ClientEntry.init(modBus);
 
