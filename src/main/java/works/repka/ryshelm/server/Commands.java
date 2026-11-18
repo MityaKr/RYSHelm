@@ -1,0 +1,321 @@
+package works.repka.ryshelm.server;
+
+import com.mojang.authlib.GameProfile;
+import com.mojang.brigadier.Command;
+import com.mojang.brigadier.CommandDispatcher;
+import com.mojang.brigadier.arguments.FloatArgumentType;
+import com.mojang.brigadier.arguments.IntegerArgumentType;
+import com.mojang.brigadier.arguments.StringArgumentType;
+import com.mojang.brigadier.builder.LiteralArgumentBuilder;
+import com.mojang.brigadier.context.CommandContext;
+import com.mojang.brigadier.exceptions.CommandSyntaxException;
+import java.util.Collection;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.function.Supplier;
+import net.minecraft.ChatFormatting;
+import net.minecraft.commands.CommandSourceStack;
+import net.minecraft.commands.arguments.EntityArgument;
+import net.minecraft.commands.arguments.GameProfileArgument;
+import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerPlayer;
+import net.neoforged.fml.ModList;
+import org.jetbrains.annotations.Nullable;
+import works.repka.ryscore.perm.Perms;
+import works.repka.ryshelm.HelmPerms;
+import works.repka.ryshelm.data.HelmData;
+import works.repka.ryshelm.data.Journal;
+import works.repka.ryshelm.logic.Kind;
+import works.repka.ryshelm.logic.Term;
+
+import static net.minecraft.commands.Commands.argument;
+import static net.minecraft.commands.Commands.literal;
+
+/**
+ * Команды. Всегда {@code /rys admin …}, {@code /report} и {@code /sc}: их нет у FTB Essentials. Корневые имена FTB
+ * ({@code /mute}, {@code /heal}, {@code /fly}, {@code /invsee}, {@code /enderchest}, {@code /trashcan}, {@code /kickme}…)
+ * занимаются, только когда FTB Essentials не загружен (план 6, решение автора 18.11): привычки игроков не ломаются, а два
+ * мода не спорят за одно имя.
+ */
+public final class Commands {
+    /** Корни FTB Essentials, которые берёт RYSHelm без него. */
+    static final List<String> FTB_ROOTS = List.of("mute", "unmute", "kickme", "enderchest", "trashcan", "heal", "feed", "extinguish", "fly", "god", "speed", "invsee");
+
+    private Commands() {}
+
+    public static boolean ftbEssentials() {
+        return ModList.get() != null && ModList.get().isLoaded("ftbessentials");
+    }
+
+    public static void register(CommandDispatcher<CommandSourceStack> d) {
+        Map<String, Supplier<LiteralArgumentBuilder<CommandSourceStack>>> sub = subcommands();
+        LiteralArgumentBuilder<CommandSourceStack> admin = literal("admin");
+        for (var e : sub.entrySet()) admin.then(e.getValue().get());
+        d.register(literal("rys").then(admin).then(rules()));
+        d.register(report("report"));
+        d.register(literal("sc").requires(s -> Helm.can(s, HelmPerms.STAFF_CHAT))
+            .then(argument("text", StringArgumentType.greedyString()).executes(c -> {
+                CommandSourceStack s = c.getSource();
+                String name = s.getPlayer() != null ? s.getPlayer().getGameProfile().getName() : "консоль";
+                if (s.getPlayer() != null && Punish.muted(s.getPlayer().getUUID()) != null) return fail(s, "Вы заглушены");
+                Chat.staff(s.getServer(), name, StringArgumentType.getString(c, "text"));
+                return 1;
+            })).executes(c -> {
+                ServerPlayer p = c.getSource().getPlayerOrException();
+                Chat.toggleStaffChat(p);
+                return ok(c.getSource(), "Чат персонала " + (Chat.staffChatOn(p.getUUID()) ? "включён: строки идут персоналу" : "выключен"));
+            }));
+        if (!ftbEssentials()) {
+            for (String root : FTB_ROOTS) {
+                String name = root.equals("trashcan") ? "trash" : root;
+                var b = sub.get(name);
+                if (b == null) continue;
+                // строитель отдаёт узел с именем подкоманды: корень собираем заново с теми же детьми
+                LiteralArgumentBuilder<CommandSourceStack> node = b.get();
+                LiteralArgumentBuilder<CommandSourceStack> r = literal(root).requires(node.getRequirement());
+                if (node.getCommand() != null) r.executes(node.getCommand());
+                for (var child : node.getArguments()) r.then(child);
+                d.register(r);
+            }
+        }
+    }
+
+    private static Map<String, Supplier<LiteralArgumentBuilder<CommandSourceStack>>> subcommands() {
+        Map<String, Supplier<LiteralArgumentBuilder<CommandSourceStack>>> m = new LinkedHashMap<>();
+        m.put("warn", () -> literal("warn").requires(s -> Helm.can(s, HelmPerms.WARN)).then(argument("player", GameProfileArgument.gameProfile())
+            .executes(c -> punish(c, Kind.WARN, 0, ""))
+            .then(argument("reason", StringArgumentType.greedyString()).executes(c -> punish(c, Kind.WARN, 0, StringArgumentType.getString(c, "reason"))))));
+        m.put("mute", () -> timed("mute", Kind.MUTE, HelmPerms.MUTE));
+        m.put("unmute", () -> literal("unmute").requires(s -> Helm.can(s, HelmPerms.MUTE)).then(argument("player", GameProfileArgument.gameProfile())
+            .executes(c -> lift(c, Kind.MUTE))));
+        m.put("kick", () -> literal("kick").requires(s -> Helm.can(s, HelmPerms.KICK)).then(argument("player", GameProfileArgument.gameProfile())
+            .executes(c -> punish(c, Kind.KICK, 0, ""))
+            .then(argument("reason", StringArgumentType.greedyString()).executes(c -> punish(c, Kind.KICK, 0, StringArgumentType.getString(c, "reason"))))));
+        m.put("ban", () -> timed("ban", Kind.BAN, HelmPerms.BAN_TEMP));
+        m.put("unban", () -> literal("unban").requires(s -> Helm.can(s, HelmPerms.BAN_TEMP)).then(argument("player", GameProfileArgument.gameProfile())
+            .executes(c -> lift(c, Kind.BAN))));
+        m.put("history", () -> literal("history").requires(s -> Helm.can(s, HelmPerms.PLAYERS)).then(argument("player", GameProfileArgument.gameProfile())
+            .executes(Commands::history)));
+        m.put("note", () -> literal("note").requires(s -> Helm.can(s, HelmPerms.NOTE)).then(argument("player", GameProfileArgument.gameProfile())
+            .then(argument("text", StringArgumentType.greedyString()).executes(c -> {
+                GameProfile gp = profile(c);
+                var a = new net.minecraft.nbt.CompoundTag();
+                a.putUUID("target", gp.getId());
+                a.putString("text", StringArgumentType.getString(c, "text"));
+                Helm.data().player(gp.getId(), gp.getName());
+                return result(c.getSource(), Requests.note(c.getSource().getPlayerOrException(), a), "Заметка о " + gp.getName() + " записана");
+            }))));
+        m.put("tp", () -> onPlayer("tp", HelmPerms.TP, (s, t) -> Staff.tp(s.getPlayerOrException(), t)));
+        m.put("tphere", () -> onPlayer("tphere", HelmPerms.TP, (s, t) -> Staff.tphere(s.getPlayerOrException(), t)));
+        m.put("spectate", () -> onPlayer("spectate", HelmPerms.SPECTATE, (s, t) -> Staff.spectate(s.getPlayerOrException(), t)));
+        m.put("back", () -> literal("back").requires(s -> Helm.can(s, HelmPerms.SPECTATE)).executes(c -> result(c.getSource(), Staff.unspectate(c.getSource().getPlayerOrException()), "Вернулись на место")));
+        m.put("freeze", () -> literal("freeze").requires(s -> Helm.can(s, HelmPerms.FREEZE)).then(argument("player", EntityArgument.player()).executes(c ->
+            ok(c.getSource(), Staff.freeze(c.getSource().getPlayerOrException(), EntityArgument.getPlayer(c, "player"))))));
+        m.put("invsee", () -> literal("invsee").requires(s -> Helm.can(s, HelmPerms.INVSEE)).then(argument("player", EntityArgument.player()).executes(c -> {
+            Staff.invsee(c.getSource().getPlayerOrException(), EntityArgument.getPlayer(c, "player"));
+            return 1;
+        })));
+        m.put("enderchest", () -> literal("enderchest").requires(s -> Helm.can(s, HelmPerms.ENDER)).executes(c -> {
+            ServerPlayer p = c.getSource().getPlayerOrException();
+            Staff.enderChest(p, p);
+            return 1;
+        }).then(argument("player", EntityArgument.player()).requires(s -> Helm.can(s, HelmPerms.ENDER_OTHER)).executes(c -> {
+            Staff.enderChest(c.getSource().getPlayerOrException(), EntityArgument.getPlayer(c, "player"));
+            return 1;
+        })));
+        m.put("trash", () -> literal("trash").requires(s -> Helm.can(s, HelmPerms.TRASH)).executes(c -> {
+            Staff.trash(c.getSource().getPlayerOrException());
+            return 1;
+        }));
+        m.put("kickme", () -> literal("kickme").requires(s -> Helm.can(s, HelmPerms.KICKME)).executes(c -> {
+            c.getSource().getPlayerOrException().connection.disconnect(Component.literal("Вы вышли с сервера"));
+            return 1;
+        }));
+        m.put("heal", () -> cheat("heal", Staff::heal));
+        m.put("feed", () -> cheat("feed", Staff::feed));
+        m.put("extinguish", () -> cheat("extinguish", Staff::extinguish));
+        m.put("fly", () -> cheat("fly", Staff::fly));
+        m.put("god", () -> cheat("god", Staff::god));
+        m.put("speed", () -> literal("speed").requires(s -> Helm.can(s, HelmPerms.CHEAT)).then(argument("times", FloatArgumentType.floatArg(0.1f, 10f))
+            .executes(c -> ok(c.getSource(), Staff.speed(c.getSource().getPlayerOrException(), c.getSource().getPlayerOrException(), FloatArgumentType.getFloat(c, "times"))))
+            .then(argument("player", EntityArgument.player()).executes(c ->
+                ok(c.getSource(), Staff.speed(c.getSource().getPlayerOrException(), EntityArgument.getPlayer(c, "player"), FloatArgumentType.getFloat(c, "times")))))));
+        m.put("move", () -> literal("move").requires(s -> Helm.can(s, HelmPerms.MOVE)).then(argument("player", GameProfileArgument.gameProfile()).executes(c -> {
+            GameProfile gp = profile(c);
+            return result(c.getSource(), Staff.move(c.getSource().getPlayerOrException(), gp.getId(), gp.getName()), gp.getName() + " окажется здесь при входе");
+        })));
+        m.put("moderator", () -> literal("moderator").requires(s -> Helm.can(s, HelmPerms.ADMIN))
+            .then(literal("add").then(argument("player", GameProfileArgument.gameProfile()).executes(c -> moderator(c, true))))
+            .then(literal("remove").then(argument("player", GameProfileArgument.gameProfile()).executes(c -> moderator(c, false))))
+            .then(literal("list").executes(c -> {
+                Map<java.util.UUID, String> mods = Helm.data().moderators;
+                return ok(c.getSource(), mods.isEmpty() ? "Модераторов нет" : "Модераторы: " + String.join(", ", mods.values()));
+            })));
+        m.put("journal", () -> literal("journal").requires(s -> Helm.can(s, HelmPerms.JOURNAL)).executes(c -> journal(c.getSource(), 10))
+            .then(argument("count", IntegerArgumentType.integer(1, 100)).executes(c -> journal(c.getSource(), IntegerArgumentType.getInteger(c, "count")))));
+        m.put("open", () -> literal("open").executes(c -> {
+            ServerPlayer p = c.getSource().getPlayerOrException();
+            var t = new net.minecraft.nbt.CompoundTag();
+            t.putString("type", "open");
+            works.repka.ryshelm.network.HelmNet.send(p, t);
+            return 1;
+        }));
+        m.put("reload", () -> literal("reload").requires(s -> Helm.can(s, HelmPerms.ADMIN)).executes(c -> {
+            Helm.loadRules();
+            Gate.settingsChanged(c.getSource().getServer());
+            Sync.helloAll(c.getSource().getServer());
+            return ok(c.getSource(), "Правила перечитаны: " + Helm.rules().rules().size() + " пунктов, версия " + Helm.rules().version());
+        }));
+        return m;
+    }
+
+    /** {@code /rys rules}: показать правила и принять их командой. */
+    private static LiteralArgumentBuilder<CommandSourceStack> rules() {
+        return literal("rules").executes(c -> {
+            CommandSourceStack s = c.getSource();
+            var r = Helm.rules();
+            s.sendSuccess(() -> Component.literal(r.title().isEmpty() ? "Правила сервера" : r.title()).withStyle(ChatFormatting.GOLD), false);
+            for (var rule : r.rules()) s.sendSuccess(() -> Component.literal(rule.number() + ". " + rule.title()).withStyle(ChatFormatting.WHITE)
+                .append(rule.detail().isEmpty() ? Component.empty() : Component.literal("\n   " + rule.detail()).withStyle(ChatFormatting.GRAY)), false);
+            return 1;
+        }).then(literal("accept").executes(c -> {
+            ServerPlayer p = c.getSource().getPlayerOrException();
+            Gate.accept(p);
+            return ok(c.getSource(), "Правила приняты");
+        }));
+    }
+
+    private static LiteralArgumentBuilder<CommandSourceStack> report(String name) {
+        return literal(name).requires(s -> Helm.can(s, HelmPerms.REPORT)).then(argument("player", GameProfileArgument.gameProfile())
+            .then(argument("text", StringArgumentType.greedyString()).executes(c -> {
+                GameProfile gp = profile(c);
+                String text = StringArgumentType.getString(c, "text");
+                int rule = 0;
+                java.util.regex.Matcher m = java.util.regex.Pattern.compile("^(?:п\\.?|p\\.?)?\\s*(\\d{1,2})[.)]?\\s+(.*)$").matcher(text);
+                if (m.matches() && Helm.rules().rule(Integer.parseInt(m.group(1))) != null) {
+                    rule = Integer.parseInt(m.group(1));
+                    text = m.group(2);
+                }
+                Helm.data().player(gp.getId(), gp.getName());
+                return result(c.getSource(), Reports.create(c.getSource().getPlayerOrException(), gp.getId(), rule, text), "");
+            })));
+    }
+
+    interface OnPlayer {
+        @Nullable String run(CommandSourceStack s, ServerPlayer target) throws CommandSyntaxException;
+    }
+
+    interface Cheat {
+        String run(ServerPlayer op, ServerPlayer target);
+    }
+
+    private static LiteralArgumentBuilder<CommandSourceStack> onPlayer(String name, Perms.Node node, OnPlayer body) {
+        return literal(name).requires(s -> Helm.can(s, node)).then(argument("player", EntityArgument.player()).executes(c ->
+            result(c.getSource(), body.run(c.getSource(), EntityArgument.getPlayer(c, "player")), "")));
+    }
+
+    private static LiteralArgumentBuilder<CommandSourceStack> cheat(String name, Cheat body) {
+        return literal(name).requires(s -> Helm.can(s, HelmPerms.CHEAT))
+            .executes(c -> ok(c.getSource(), body.run(c.getSource().getPlayerOrException(), c.getSource().getPlayerOrException())))
+            .then(argument("player", EntityArgument.player()).executes(c -> {
+                ServerPlayer target = EntityArgument.getPlayer(c, "player");
+                ServerPlayer op = c.getSource().getPlayer();
+                return ok(c.getSource(), body.run(op != null ? op : target, target));
+            }));
+    }
+
+    private static LiteralArgumentBuilder<CommandSourceStack> timed(String name, Kind kind, Perms.Node node) {
+        return literal(name).requires(s -> Helm.can(s, node)).then(argument("player", GameProfileArgument.gameProfile())
+            .then(argument("term", StringArgumentType.word())
+                .executes(c -> punish(c, kind, term(c), ""))
+                .then(argument("reason", StringArgumentType.greedyString()).executes(c -> punish(c, kind, term(c), StringArgumentType.getString(c, "reason"))))));
+    }
+
+    private static long term(CommandContext<CommandSourceStack> c) throws CommandSyntaxException {
+        try {
+            return Term.parse(StringArgumentType.getString(c, "term"));
+        } catch (IllegalArgumentException e) {
+            throw new com.mojang.brigadier.exceptions.SimpleCommandExceptionType(Component.literal("Срок: 10m, 1h, 1d, 7d или perm")).create();
+        }
+    }
+
+    private static GameProfile profile(CommandContext<CommandSourceStack> c) throws CommandSyntaxException {
+        Collection<GameProfile> all = GameProfileArgument.getGameProfiles(c, "player");
+        return all.iterator().next();
+    }
+
+    /** Пункт правил в начале причины: {@code п.3 мат} или {@code 3 мат}. */
+    static int[] ruleOf(String reason) {
+        java.util.regex.Matcher m = java.util.regex.Pattern.compile("^(?:п\\.?|p\\.?)\\s*(\\d{1,2})\\b\\s*(.*)$").matcher(reason.strip());
+        if (m.matches()) return new int[] {Integer.parseInt(m.group(1)), m.start(2)};
+        return new int[] {0, 0};
+    }
+
+    private static int punish(CommandContext<CommandSourceStack> c, Kind kind, long millis, String reasonRaw) throws CommandSyntaxException {
+        GameProfile gp = profile(c);
+        int[] r = ruleOf(reasonRaw);
+        String reason = r[0] > 0 ? reasonRaw.strip().substring(r[1]) : reasonRaw;
+        Helm.data().player(gp.getId(), gp.getName());
+        String err = Punish.give(c.getSource().getServer(), c.getSource().getPlayer(), gp.getId(), gp.getName(), kind, millis, r[0], reason, true);
+        String done = switch (kind) {
+            case WARN -> gp.getName() + " предупреждён";
+            case MUTE -> gp.getName() + " заглушён " + Term.onLabel(millis);
+            case KICK -> gp.getName() + " выгнан";
+            case BAN -> gp.getName() + " забанен " + Term.onLabel(millis);
+        };
+        return result(c.getSource(), err, done);
+    }
+
+    private static int lift(CommandContext<CommandSourceStack> c, Kind kind) throws CommandSyntaxException {
+        GameProfile gp = profile(c);
+        String err = Punish.lift(c.getSource().getServer(), c.getSource().getPlayer(), gp.getId(), kind);
+        return result(c.getSource(), err, gp.getName() + (kind == Kind.BAN ? ": бан снят" : ": заглушение снято"));
+    }
+
+    private static int moderator(CommandContext<CommandSourceStack> c, boolean on) throws CommandSyntaxException {
+        GameProfile gp = profile(c);
+        String err = Requests.moderator(c.getSource().getPlayer(), gp.getId(), gp.getName(), on);
+        return result(c.getSource(), err, gp.getName() + (on ? " теперь модератор" : " больше не модератор"));
+    }
+
+    private static int history(CommandContext<CommandSourceStack> c) throws CommandSyntaxException {
+        GameProfile gp = profile(c);
+        List<HelmData.Punishment> list = Helm.data().of(gp.getId());
+        if (list.isEmpty()) return ok(c.getSource(), gp.getName() + ": наказаний нет");
+        long now = System.currentTimeMillis();
+        for (HelmData.Punishment p : list) {
+            String term = p.kind.timed() ? " " + (p.expires == 0 ? "навсегда" : Term.label(p.expires - p.created)) : "";
+            String state = p.revoked > 0 ? " · снято" : p.active(now) ? " · действует" : "";
+            c.getSource().sendSuccess(() -> Component.literal("#" + p.id + " " + Sync.dateTime(p.created) + " " + p.kind.noun() + term + state + " · " + p.byName
+                + (Punish.note(p).isEmpty() ? "" : " · " + Punish.note(p))), false);
+        }
+        return list.size();
+    }
+
+    private static int journal(CommandSourceStack s, int count) {
+        Journal j = Helm.journal();
+        if (j == null) return 0;
+        var list = j.query(e -> true, count);
+        for (int i = list.size() - 1; i >= 0; i--) {
+            Journal.Entry e = list.get(i);
+            s.sendSuccess(() -> Component.literal(Sync.dateTime(e.t) + " " + e.an + " " + e.type + " " + e.pn + (e.d.isEmpty() ? "" : " " + e.d)
+                + (e.n.isEmpty() ? "" : " · " + e.n.replaceAll("#\\d+$", ""))).withStyle(ChatFormatting.GRAY), false);
+        }
+        return list.size();
+    }
+
+    static int ok(CommandSourceStack s, String text) {
+        if (!text.isEmpty()) s.sendSuccess(() -> Component.literal(text), false);
+        return Command.SINGLE_SUCCESS;
+    }
+
+    static int fail(CommandSourceStack s, String text) {
+        s.sendFailure(Component.literal(text));
+        return 0;
+    }
+
+    static int result(CommandSourceStack s, @Nullable String err, String done) {
+        return err != null ? fail(s, err) : ok(s, done);
+    }
+}

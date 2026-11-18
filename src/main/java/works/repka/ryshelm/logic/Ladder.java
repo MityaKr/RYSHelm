@@ -1,0 +1,159 @@
+package works.repka.ryshelm.logic;
+
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
+import java.util.Locale;
+import org.jetbrains.annotations.Nullable;
+
+/**
+ * Лестница наказаний сервера (план 5.4, окно наказания): шаги по порядку, по ним подсказка «Следующий шаг по правилам
+ * сервера: заглушить на 1 ч. Дальше по лестнице: бан на 1 день». Шаг выбирается числом наказаний игрока за окно
+ * (по умолчанию 30 дней); снятые наказания не считаются, последний шаг повторяется.
+ *
+ * <p>Строка настроек: {@code warn, mute 1h, ban 1d, ban 7d, ban perm}.
+ */
+public final class Ladder {
+    public static final String DEFAULT = "warn, mute 1h, ban 1d, ban 7d, ban perm";
+    public static final int DEFAULT_WINDOW_DAYS = 30;
+
+    /** Шаг лестницы: вид и срок (у предупреждения и «выгнать» срок 0). */
+    public record Step(Kind kind, long millis) {
+        /** «предупреждение», «заглушить на 1 ч», «бан на 1 день», «бан навсегда». */
+        public String label() {
+            return switch (kind) {
+                case WARN -> "предупреждение";
+                case KICK -> "выгнать";
+                case MUTE -> "заглушить " + Term.onLabel(millis);
+                case BAN -> "бан " + Term.onLabel(millis);
+            };
+        }
+
+        public String code() {
+            return kind.timed() ? kind.id() + " " + Term.code(millis) : kind.id();
+        }
+    }
+
+    /** Прошлое наказание для счёта: вид, когда дано, снято ли. */
+    public record Past(Kind kind, long created, boolean revoked) {}
+
+    /** Подсказка окна: сколько уже было, следующий шаг и шаг за ним. */
+    public record Hint(int count, int warnings, long since, Step next, @Nullable Step after) {}
+
+    private final List<Step> steps;
+    private final long window;
+
+    public Ladder(List<Step> steps, long windowMillis) {
+        if (steps.isEmpty()) throw new IllegalArgumentException("пустая лестница");
+        this.steps = List.copyOf(steps);
+        this.window = windowMillis;
+    }
+
+    public static Ladder defaults() {
+        return parse(DEFAULT, DEFAULT_WINDOW_DAYS);
+    }
+
+    /** Из строки настроек; непонятная строка даёт лестницу по умолчанию. */
+    public static Ladder parse(String text, int windowDays) {
+        long window = Math.max(1, windowDays) * Term.DAY;
+        try {
+            return new Ladder(steps(text), window);
+        } catch (RuntimeException e) {
+            return new Ladder(steps(DEFAULT), window);
+        }
+    }
+
+    /** Шаги из строки {@code warn, mute 1h, ban 7d}; ошибка бросает IllegalArgumentException. */
+    public static List<Step> steps(String text) {
+        List<Step> out = new ArrayList<>();
+        for (String part : text.split("[,;\\n]")) {
+            String p = part.trim();
+            if (p.isEmpty()) continue;
+            String[] w = p.split("\\s+");
+            Kind kind = Kind.parse(w[0]);
+            if (kind == null) throw new IllegalArgumentException("вид: " + w[0]);
+            long millis = 0;
+            if (kind.timed()) {
+                if (w.length < 2) throw new IllegalArgumentException("нет срока: " + p);
+                millis = Term.parse(w[1]);
+            }
+            out.add(new Step(kind, millis));
+        }
+        if (out.isEmpty()) throw new IllegalArgumentException("пустая лестница");
+        return out;
+    }
+
+    public List<Step> steps() {
+        return steps;
+    }
+
+    public long window() {
+        return window;
+    }
+
+    public String text() {
+        StringBuilder b = new StringBuilder();
+        for (Step s : steps) {
+            if (!b.isEmpty()) b.append(", ");
+            b.append(s.code());
+        }
+        return b.toString();
+    }
+
+    /** Наказания, которые считаются: не сняты и в окне, любого вида. */
+    private int counted(Collection<Past> history, long now) {
+        int n = 0;
+        for (Past p : history) if (!p.revoked && now - p.created <= window) n++;
+        return n;
+    }
+
+    /** Следующий шаг для игрока с такой историей. */
+    public Hint next(Collection<Past> history, long now) {
+        int count = counted(history, now);
+        int warnings = 0;
+        long since = now;
+        for (Past p : history) {
+            if (p.revoked || now - p.created > window) continue;
+            if (p.kind == Kind.WARN) warnings++;
+            since = Math.min(since, p.created);
+        }
+        int i = Math.min(count, steps.size() - 1);
+        Step next = steps.get(i);
+        Step after = i + 1 < steps.size() ? steps.get(i + 1) : null;
+        return new Hint(count, warnings, since, next, after);
+    }
+
+    /**
+     * Текст подсказки макета 09: «У Grib_ok 1 предупреждение за 3 дня. Следующий шаг по правилам сервера: заглушить на 1 ч.
+     * Дальше по лестнице: бан на 1 день.» Без прошлых наказаний: «Наказаний за 30 дней нет. Первый шаг по правилам сервера:
+     * предупреждение.»
+     */
+    public String describe(String name, Collection<Past> history, long now) {
+        Hint h = next(history, now);
+        StringBuilder b = new StringBuilder();
+        if (h.count() == 0) {
+            b.append("Наказаний за ").append(Term.label(window)).append(" нет. Первый шаг по правилам сервера: ").append(h.next().label()).append('.');
+        } else {
+            long days = Math.max(1, (now - h.since() + Term.DAY - 1) / Term.DAY);
+            b.append("У ").append(name).append(' ').append(summary(h)).append(" за ").append(Term.plural(days, "день", "дня", "дней"))
+                .append(". Следующий шаг по правилам сервера: ").append(h.next().label()).append('.');
+        }
+        if (h.after() != null) b.append(" Дальше по лестнице: ").append(h.after().label()).append('.');
+        return b.toString();
+    }
+
+    /** «1 предупреждение», «2 наказания», «1 предупреждение и 1 наказание». */
+    static String summary(Hint h) {
+        int other = h.count() - h.warnings();
+        String w = h.warnings() > 0 ? Term.plural(h.warnings(), "предупреждение", "предупреждения", "предупреждений") : "";
+        String o = other > 0 ? Term.plural(other, "наказание", "наказания", "наказаний") : "";
+        if (w.isEmpty()) return o;
+        if (o.isEmpty()) return w;
+        return w + " и " + o;
+    }
+
+    @Override
+    public String toString() {
+        return text().toLowerCase(Locale.ROOT) + " / " + window / Term.DAY + "d";
+    }
+}
