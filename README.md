@@ -12,7 +12,8 @@
 - **Правила при входе:** текст в `config/ryshelm/rules.md`, пункты нумерованы. Пока игрок не принял правила, он может ходить и читать чат.
 - **Персоналу:** карточка игрока, к игроку и позвать без запроса, наблюдать и вернуться, заморозить, инвентарь и сундук Края (модератору только смотреть), заметки, чат персонала `/sc`.
 - **Оператору:** вылечить, накормить, полёт, бессмертие, скорость, переставить игрока вне сети.
-- **Всем:** сундук Края и корзина в колесе, `/kickme`.
+- **Всем:** сундук Края и корзина в колесе, `/kickme`, наборы (`/rys kit`), отметка «отошёл» (`/rys afk`).
+- **Публичному серверу:** стартовый набор при первом входе, антиспам чата, белый список окном, выход по простою. Всё выключено по умолчанию и включается во вкладке «Настройки».
 
 ## Где
 
@@ -20,9 +21,9 @@
 
 ## Команды
 
-`/rys admin warn|mute|unmute|kick|ban|unban|history|note|tp|tphere|spectate|back|freeze|invsee|enderchest|trash|kickme|heal|feed|extinguish|fly|god|speed|move|moderator|journal|open|reload`, `/rys rules [accept]`, `/report`, `/sc`. Срок: `10m`, `1h`, `1d`, `7d`, `perm`. Пункт правил в начале причины: `п.3 мат в чате`.
+`/rys admin warn|mute|unmute|kick|ban|unban|history|note|tp|tphere|tplast|tpx|jump|spectate|back|freeze|invsee|enderchest|trash|kickme|heal|feed|extinguish|fly|god|speed|move|moderator|kits|journal|open|reload`, `/rys rules [accept]`, `/rys kit [имя]`, `/rys afk`, `/report`, `/sc`. Срок: `10m`, `1h`, `1d`, `7d`, `perm`. Пункт правил в начале причины: `п.3 мат в чате`.
 
-Без FTB Essentials те же действия доступны прежними именами: `/mute`, `/unmute`, `/heal`, `/feed`, `/extinguish`, `/fly`, `/god`, `/speed`, `/invsee`, `/enderchest`, `/trashcan`, `/kickme`.
+Без FTB Essentials те же действия доступны прежними именами: `/mute`, `/unmute`, `/heal`, `/feed`, `/extinguish`, `/fly`, `/god`, `/speed`, `/invsee`, `/enderchest`, `/trashcan`, `/kickme`, `/kit`.
 
 ## Переезд с FTB Essentials
 
