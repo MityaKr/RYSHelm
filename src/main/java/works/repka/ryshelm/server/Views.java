@@ -38,7 +38,10 @@ final class Views {
         CompoundTag out = new CompoundTag();
         out.putString("tab", tab);
         switch (tab) {
-            case "players" -> out.put("players", players(viewer));
+            case "players" -> {
+                out.put("players", players(viewer, view.getString("who")));
+                if (HelmPerms.PLAYERS.test(viewer)) out.putInt("known", Helm.data().players.size());
+            }
             case "rules" -> out.put("rules", rules(viewer));
             case "reports" -> {
                 if (HelmPerms.REPORTS.test(viewer)) out.put("reports", Reports.view(viewer, view.getLong("report")));
@@ -64,14 +67,38 @@ final class Views {
 
     // ---- игроки ----
 
-    static ListTag players(ServerPlayer viewer) {
+    /** Сколько игроков вне сети уходит персоналу без поиска (разбор логики 19.11, п. 1): предел пакета NBT клиента 2 МиБ. */
+    static final int OFFLINE_PAGE = 200;
+
+    /**
+     * Строки вкладки «Игроки». Персоналу: все в сети, вне сети последние {@link #OFFLINE_PAGE} по времени выхода, всегда
+     * наказанные и те, на кого есть открытые жалобы; с поиском вне сети только совпавшие по нику.
+     */
+    static ListTag players(ServerPlayer viewer, String query) {
         MinecraftServer server = viewer.server;
         boolean staff = HelmPerms.PLAYERS.test(viewer);
         long now = System.currentTimeMillis();
         HelmData data = Helm.data();
+        String q = query == null ? "" : query.strip().toLowerCase(java.util.Locale.ROOT);
+        // жалобы на игрока считаются один раз за сборку, а не перебором на каждую строку
+        java.util.Map<UUID, Integer> openReports = new java.util.HashMap<>();
+        if (staff) for (HelmData.Report rep : data.reports) if (rep.state != HelmData.Report.State.CLOSED) openReports.merge(rep.target, 1, Integer::sum);
         Set<UUID> ids = new LinkedHashSet<>();
         for (ServerPlayer p : server.getPlayerList().getPlayers()) ids.add(p.getUUID());
-        if (staff) ids.addAll(data.players.keySet());
+        if (staff) {
+            List<HelmData.PlayerInfo> offline = new java.util.ArrayList<>();
+            for (HelmData.PlayerInfo info : data.players.values()) {
+                if (ids.contains(info.id)) continue;
+                if (!q.isEmpty()) {
+                    if (info.name != null && info.name.toLowerCase(java.util.Locale.ROOT).contains(q)) offline.add(info);
+                    continue;
+                }
+                if (openReports.containsKey(info.id) || data.active(info.id, Kind.MUTE, now) != null || data.active(info.id, Kind.BAN, now) != null) ids.add(info.id);
+                else offline.add(info);
+            }
+            offline.sort(Comparator.comparingLong((HelmData.PlayerInfo i) -> i.lastSeen).reversed());
+            for (int i = 0; i < offline.size() && i < OFFLINE_PAGE; i++) ids.add(offline.get(i).id);
+        }
         UUID myTeam = TeamsApi.get().teamOf(viewer.getUUID());
         ListTag list = new ListTag();
         for (UUID id : ids) {
@@ -108,7 +135,7 @@ final class Views {
                 int warns = 0;
                 for (HelmData.Punishment x : data.history(id)) if (x.kind == Kind.WARN && x.revoked == 0 && now - x.created < 30 * Term.DAY) warns++;
                 r.putInt("warns", warns);
-                r.putInt("reports", Reports.openAgainst(id));
+                r.putInt("reports", openReports.getOrDefault(id, 0));
             }
             list.add(r);
         }

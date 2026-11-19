@@ -157,7 +157,8 @@ public final class ServerScreen extends ScaledScreen {
     void request() {
         if (!HelmClient.present) return;
         UUID card = tab == Tab.PLAYERS && staffView() ? selected : null;
-        String whoText = who == null ? "" : who.getValue();
+        // во вкладке «Игроки» поле поиска ищет и вне сети на сервере, в «Журнале» отбор по игроку
+        String whoText = tab == Tab.PLAYERS ? (search == null ? "" : search.getValue().strip()) : who == null ? "" : who.getValue();
         String key = tab.id + card + punishTarget + report + whoText + journalDays + journalCat;
         if (key.equals(lastRequest)) return;
         lastRequest = key;
@@ -378,7 +379,7 @@ public final class ServerScreen extends ScaledScreen {
         int fy = top + 9;
         if (staff) {
             for (String[] f : new String[][] {{"online", "В сети"}, {"all", "Все"}, {"newbie", "Новички"}, {"punished", "Наказаны"}, {"reported", "С жалобами"}}) {
-                x += Kit.pill(g, t, hits, x, fy, f[1] + " · " + count(f[0]), filter.equals(f[0]), mx, my, () -> {
+                x += Kit.pill(g, t, hits, x, fy, f[1] + " · " + (f[0].equals("all") && View.players.contains("known") ? Math.max(count("all"), View.players.getInt("known")) : count(f[0])), filter.equals(f[0]), mx, my, () -> {
                     filter = f[0];
                     listScroll.reset();
                 }) + 3;
