@@ -58,7 +58,9 @@ public final class ServerScreen extends ScaledScreen {
     int mx, my, px, py;
     Theme t;
     @Nullable List<String> tooltip;
-    private String lastRequest = "";
+    private String lastRequest = "", lastText = "";
+    private long textChanged;
+    private @Nullable Tab lastTab;
 
     // поля ввода
     Field search, reason, customTerm, noteBox, reportText, who, welcome, serverName, ladder, wlName;
@@ -161,6 +163,15 @@ public final class ServerScreen extends ScaledScreen {
         String whoText = tab == Tab.PLAYERS ? (search == null ? "" : search.getValue().strip()) : who == null ? "" : who.getValue();
         String key = tab.id + card + punishTarget + report + whoText + journalDays + journalCat;
         if (key.equals(lastRequest)) return;
+        // печать в поле: запрос уходит через 300 мс после последней буквы, а не на каждую
+        if (tab != lastTab) {
+            lastTab = tab;
+            lastText = whoText;
+        } else if (!whoText.equals(lastText)) {
+            lastText = whoText;
+            textChanged = System.currentTimeMillis();
+        }
+        if (System.currentTimeMillis() - textChanged < 300 && !lastRequest.isEmpty()) return;
         lastRequest = key;
         View.request(tab.id, card, punishTarget, report, whoText, journalDays, journalCat);
     }
@@ -320,7 +331,27 @@ public final class ServerScreen extends ScaledScreen {
     // ---- игроки ----
 
     /** Строка игрока из данных сервера, без мода на сервере из списка вкладки игры. */
+    // кэш списка игроков (разбор логики 19.11, п. 5): пересчёт только при новых данных, поиске, фильтре или сортировке
+    private int rowsVersion = -1;
+    private long rowsPlayers = -1;
+    private List<CompoundTag> rowsCache = List.of();
+    private String visibleKey = "";
+    private List<CompoundTag> visibleCache = List.of();
+    private final java.util.Map<String, Integer> countCache = new java.util.HashMap<>();
+
     List<CompoundTag> rows() {
+        // без мода на сервере список берётся из вкладки игры: его меняет только число игроков
+        long online = Minecraft.getInstance().getConnection() == null ? 0 : Minecraft.getInstance().getConnection().getOnlinePlayers().size();
+        if (rowsVersion == View.version && (HelmClient.present || rowsPlayers == online)) return rowsCache;
+        rowsVersion = View.version;
+        rowsPlayers = online;
+        rowsCache = buildRows();
+        visibleKey = "";
+        countCache.clear();
+        return rowsCache;
+    }
+
+    private List<CompoundTag> buildRows() {
         List<CompoundTag> out = new ArrayList<>();
         if (HelmClient.present) {
             for (Tag x : View.players.getList("players", Tag.TAG_COMPOUND)) out.add((CompoundTag) x);
@@ -339,8 +370,11 @@ public final class ServerScreen extends ScaledScreen {
 
     List<CompoundTag> visibleRows() {
         String q = search.getValue().strip().toLowerCase(Locale.ROOT);
+        List<CompoundTag> all = rows();
+        String key = q + "\u0000" + filter + "\u0000" + sort;
+        if (key.equals(visibleKey)) return visibleCache;
         List<CompoundTag> out = new ArrayList<>();
-        for (CompoundTag r : rows()) {
+        for (CompoundTag r : all) {
             if (!q.isEmpty() && !r.getString("name").toLowerCase(Locale.ROOT).contains(q) && !r.getString("team").toLowerCase(Locale.ROOT).contains(q)) continue;
             if (!passes(r, filter)) continue;
             out.add(r);
@@ -352,6 +386,8 @@ public final class ServerScreen extends ScaledScreen {
             default -> Comparator.comparing((CompoundTag r) -> !r.getBoolean("online")).thenComparing((CompoundTag r) -> -Math.max(r.getLong("since"), r.getLong("seen")) * (r.getBoolean("online") ? -1 : 1)).thenComparing(byName);
         };
         out.sort(c);
+        visibleKey = key;
+        visibleCache = out;
         return out;
     }
 
@@ -367,8 +403,12 @@ public final class ServerScreen extends ScaledScreen {
     }
 
     private int count(String f) {
+        List<CompoundTag> all = rows();
+        Integer cached = countCache.get(f);
+        if (cached != null) return cached;
         int n = 0;
-        for (CompoundTag r : rows()) if (passes(r, f)) n++;
+        for (CompoundTag r : all) if (passes(r, f)) n++;
+        countCache.put(f, n);
         return n;
     }
 
