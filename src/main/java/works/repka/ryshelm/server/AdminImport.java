@@ -127,7 +127,7 @@ public final class AdminImport {
                 seen++;
             }
             if (p.muted) {
-                boolean done = dst.punishments.stream().anyMatch(x -> x.kind == Kind.MUTE && p.id.equals(x.target) && FROM.equals(x.byName));
+                boolean done = dst.history(p.id).stream().anyMatch(x -> x.kind == Kind.MUTE && FROM.equals(x.byName));
                 if (done) {
                     report.skipped("mute " + p.id, "уже перенесено");
                 } else if (dst.active(p.id, Kind.MUTE, now) != null) {

@@ -106,7 +106,7 @@ final class Views {
                 r.putBoolean("banned", data.active(id, Kind.BAN, now) != null);
                 r.putBoolean("frozen", Staff.frozen(id));
                 int warns = 0;
-                for (HelmData.Punishment x : data.punishments) if (id.equals(x.target) && x.kind == Kind.WARN && x.revoked == 0 && now - x.created < 30 * Term.DAY) warns++;
+                for (HelmData.Punishment x : data.history(id)) if (x.kind == Kind.WARN && x.revoked == 0 && now - x.created < 30 * Term.DAY) warns++;
                 r.putInt("warns", warns);
                 r.putInt("reports", Reports.openAgainst(id));
             }

@@ -31,6 +31,34 @@ public final class HelmData {
     public Map<UUID, List<String>> mail = new LinkedHashMap<>();
     public long nextId = 1;
 
+    // индекс наказаний по игроку и номеру (разбор логики 19.11, п. 3): в файл не пишется, строится заново, когда список вырос
+    private transient Map<UUID, List<Punishment>> byTarget;
+    private transient Map<Long, Punishment> byId;
+    private transient List<Punishment> indexedList;
+    private transient int indexedSize = -1;
+
+    /** Наказания добавляются только в конец списка; снятие меняет запись на месте, индекс это не ломает. */
+    private void index() {
+        if (indexedList == punishments && indexedSize == punishments.size()) return;
+        Map<UUID, List<Punishment>> t = new java.util.HashMap<>();
+        Map<Long, Punishment> ids = new java.util.HashMap<>();
+        for (Punishment p : punishments) {
+            if (p.target != null) t.computeIfAbsent(p.target, k -> new ArrayList<>(2)).add(p);
+            ids.put(p.id, p);
+        }
+        byTarget = t;
+        byId = ids;
+        indexedList = punishments;
+        indexedSize = punishments.size();
+    }
+
+    /** Все наказания игрока в порядке выдачи (живой список индекса, не менять). */
+    public List<Punishment> history(UUID target) {
+        index();
+        List<Punishment> l = byTarget.get(target);
+        return l == null ? List.of() : l;
+    }
+
     public long id() {
         return nextId++;
     }
@@ -56,23 +84,25 @@ public final class HelmData {
 
     /** Наказания игрока, новые сверху. */
     public List<Punishment> of(UUID target) {
-        List<Punishment> out = new ArrayList<>();
-        for (int i = punishments.size() - 1; i >= 0; i--) if (target.equals(punishments.get(i).target)) out.add(punishments.get(i));
+        List<Punishment> h = history(target);
+        List<Punishment> out = new ArrayList<>(h.size());
+        for (int i = h.size() - 1; i >= 0; i--) out.add(h.get(i));
         return out;
     }
 
     /** Действующее наказание вида или null. */
     public @Nullable Punishment active(UUID target, Kind kind, long now) {
-        for (int i = punishments.size() - 1; i >= 0; i--) {
-            Punishment p = punishments.get(i);
-            if (p.kind == kind && target.equals(p.target) && p.active(now)) return p;
+        List<Punishment> h = history(target);
+        for (int i = h.size() - 1; i >= 0; i--) {
+            Punishment p = h.get(i);
+            if (p.kind == kind && p.active(now)) return p;
         }
         return null;
     }
 
     public @Nullable Punishment punishment(long id) {
-        for (Punishment p : punishments) if (p.id == id) return p;
-        return null;
+        index();
+        return byId.get(id);
     }
 
     public @Nullable Report report(long id) {
@@ -83,7 +113,7 @@ public final class HelmData {
     /** История для лестницы. */
     public List<Ladder.Past> past(UUID target) {
         List<Ladder.Past> out = new ArrayList<>();
-        for (Punishment p : punishments) if (target.equals(p.target)) out.add(new Ladder.Past(p.kind, p.created, p.revoked > 0));
+        for (Punishment p : history(target)) out.add(new Ladder.Past(p.kind, p.created, p.revoked > 0));
         return out;
     }
 
