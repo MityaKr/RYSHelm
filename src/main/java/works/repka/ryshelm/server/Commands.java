@@ -40,7 +40,7 @@ import static net.minecraft.commands.Commands.literal;
  */
 public final class Commands {
     /** Корни FTB Essentials, которые берёт RYSHelm без него. */
-    static final List<String> FTB_ROOTS = List.of("mute", "unmute", "kickme", "enderchest", "trashcan", "heal", "feed", "extinguish", "fly", "god", "speed", "invsee");
+    static final List<String> FTB_ROOTS = List.of("mute", "unmute", "kickme", "enderchest", "trashcan", "heal", "feed", "extinguish", "fly", "god", "speed", "invsee", "kit");
 
     private Commands() {}
 
@@ -52,7 +52,7 @@ public final class Commands {
         Map<String, Supplier<LiteralArgumentBuilder<CommandSourceStack>>> sub = subcommands();
         LiteralArgumentBuilder<CommandSourceStack> admin = literal("admin");
         for (var e : sub.entrySet()) admin.then(e.getValue().get());
-        d.register(literal("rys").then(admin).then(rules()));
+        d.register(literal("rys").then(admin).then(rules()).then(sub.get("kit").get()));
         d.register(report("report"));
         d.register(literal("sc").requires(s -> Helm.can(s, HelmPerms.STAFF_CHAT))
             .then(argument("text", StringArgumentType.greedyString()).executes(c -> {
@@ -168,6 +168,53 @@ public final class Commands {
             works.repka.ryshelm.network.HelmNet.send(p, t);
             return 1;
         }));
+        m.put("kit", () -> literal("kit").requires(s -> Helm.can(s, HelmPerms.KIT)).executes(c -> {
+            CommandSourceStack s = c.getSource();
+            var all = Kits.all();
+            if (all.isEmpty()) return ok(s, "Наборов нет");
+            ServerPlayer p = s.getPlayer();
+            for (Kits.Kit k : all) {
+                long left = p == null ? 0 : Kits.left(p, k);
+                String state = left == 0 ? "можно взять" : left == Long.MAX_VALUE ? "уже взят" : "через " + Term.left(left);
+                s.sendSuccess(() -> Component.literal(k.name + " · " + works.repka.ryshelm.logic.KitRule.label(k.cooldown) + " · " + state), false);
+            }
+            return all.size();
+        }).then(argument("name", StringArgumentType.word()).suggests((c, b) -> net.minecraft.commands.SharedSuggestionProvider.suggest(Kits.all().stream().map(k -> k.name), b))
+            .executes(c -> {
+                Kits.Kit k = Kits.get(StringArgumentType.getString(c, "name"));
+                if (k == null) return fail(c.getSource(), "Нет такого набора");
+                return result(c.getSource(), Kits.give(c.getSource().getPlayerOrException(), k, false, null), "Набор «" + k.name + "» в инвентаре");
+            })));
+        m.put("kits", () -> literal("kits").requires(s -> Helm.can(s, HelmPerms.KIT_MANAGE))
+            .then(literal("create").then(argument("name", StringArgumentType.word()).executes(c -> kitCreate(c, works.repka.ryshelm.logic.KitRule.ONCE))
+                .then(argument("cooldown", StringArgumentType.word()).executes(c -> {
+                    int cd;
+                    try {
+                        cd = works.repka.ryshelm.logic.KitRule.parse(StringArgumentType.getString(c, "cooldown"));
+                    } catch (IllegalArgumentException e) {
+                        return fail(c.getSource(), "Пауза: once, 0, 30m, 1d");
+                    }
+                    return kitCreate(c, cd);
+                }))))
+            .then(literal("delete").then(argument("name", StringArgumentType.word()).executes(c -> {
+                boolean done = Kits.delete(c.getSource().getPlayerOrException(), StringArgumentType.getString(c, "name"));
+                return done ? ok(c.getSource(), "Набор удалён") : fail(c.getSource(), "Нет такого набора");
+            })))
+            .then(literal("give").then(argument("player", EntityArgument.player()).then(argument("name", StringArgumentType.word()).executes(c -> {
+                Kits.Kit k = Kits.get(StringArgumentType.getString(c, "name"));
+                if (k == null) return fail(c.getSource(), "Нет такого набора");
+                ServerPlayer target = EntityArgument.getPlayer(c, "player");
+                return result(c.getSource(), Kits.give(target, k, true, c.getSource().getPlayer()), "Набор «" + k.name + "» выдан " + target.getGameProfile().getName());
+            }))))
+            .then(literal("starter").then(argument("name", StringArgumentType.word()).executes(c -> {
+                String name = StringArgumentType.getString(c, "name");
+                if (name.equals("none")) name = "";
+                else if (Kits.get(name) == null) return fail(c.getSource(), "Нет такого набора");
+                Helm.settings().starterKit = name.toLowerCase(java.util.Locale.ROOT);
+                Helm.saveSettings();
+                Helm.log("settings", c.getSource().getPlayer(), null, "", name.isEmpty() ? "стартовый набор выключен" : "стартовый набор «" + name + "»", "");
+                return ok(c.getSource(), name.isEmpty() ? "Стартовый набор выключен" : "Стартовый набор: " + name);
+            }))));
         m.put("reload", () -> literal("reload").requires(s -> Helm.can(s, HelmPerms.ADMIN)).executes(c -> {
             Helm.loadRules();
             Gate.settingsChanged(c.getSource().getServer());
@@ -278,6 +325,13 @@ public final class Commands {
         GameProfile gp = profile(c);
         String err = Punish.lift(c.getSource().getServer(), c.getSource().getPlayer(), gp.getId(), kind);
         return result(c.getSource(), err, gp.getName() + (kind == Kind.BAN ? ": бан снят" : ": заглушение снято"));
+    }
+
+    private static int kitCreate(CommandContext<CommandSourceStack> c, int cooldown) throws CommandSyntaxException {
+        String key = Kits.create(c.getSource().getPlayerOrException(), StringArgumentType.getString(c, "name"), cooldown);
+        if (key == null) return fail(c.getSource(), "Имя набора: латиница, цифры, _ и -, до 24 знаков");
+        if (key.isEmpty()) return fail(c.getSource(), "Инвентарь пуст: набор собирается из ваших вещей");
+        return ok(c.getSource(), "Набор «" + key + "» собран из инвентаря · " + works.repka.ryshelm.logic.KitRule.label(cooldown));
     }
 
     private static int moderator(CommandContext<CommandSourceStack> c, boolean on) throws CommandSyntaxException {

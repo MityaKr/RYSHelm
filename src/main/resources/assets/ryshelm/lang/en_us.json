@@ -22,12 +22,10 @@
   "ryshelm.perm.cheat": "Heal, feed, fly, god mode",
   "ryshelm.perm.move": "Move an offline player",
   "ryshelm.perm.admin": "Roles and server settings",
-
   "key.categories.ryshelm": "RYSHelm: server",
   "key.ryshelm.open": "Server window",
   "ryshelm.dock": "Server",
   "ryshelm.dock.desc": "Players, rules, reports, journal",
-
   "ryshelm.action.open": "Server",
   "ryshelm.action.players": "Players",
   "ryshelm.action.reports": "Reports",
@@ -43,5 +41,8 @@
   "ryshelm.action.feed": "Feed",
   "ryshelm.action.speed": "Speed",
   "ryshelm.action.invsee": "Player inventory",
-  "ryshelm.action.rules": "Server rules"
+  "ryshelm.action.rules": "Server rules",
+  "ryshelm.perm.kit": "Kits: claim",
+  "ryshelm.perm.kit.manage": "Kits: create and give",
+  "ryshelm.action.kits": "Kits"
 }

@@ -23,6 +23,8 @@ public final class HelmSettings {
     public int ladderDays = Ladder.DEFAULT_WINDOW_DAYS;
     public String moderatorMuteMax = Term.code(Caps.DEFAULT_MUTE);
     public String moderatorBanMax = Term.code(Caps.DEFAULT_BAN);
+    /** Стартовый набор при первом входе; пустой выключен. */
+    public String starterKit = "";
     /** Сколько дней хранится журнал. */
     public int journalDays = 90;
     /** Пауза между жалобами одного игрока, секунды. */
@@ -46,6 +48,7 @@ public final class HelmSettings {
         reportCooldown = Math.max(0, Math.min(86400, reportCooldown));
         reportChatLines = Math.max(0, Math.min(100, reportChatLines));
         if (welcome == null) welcome = "";
+        if (starterKit == null) starterKit = "";
         if (ladder == null || ladder.isBlank()) ladder = Ladder.DEFAULT;
         if (moderatorMuteMax == null) moderatorMuteMax = Term.code(Caps.DEFAULT_MUTE);
         if (moderatorBanMax == null) moderatorBanMax = Term.code(Caps.DEFAULT_BAN);

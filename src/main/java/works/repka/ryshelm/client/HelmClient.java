@@ -23,6 +23,8 @@ public final class HelmClient {
     public static boolean fly, god, spectating, staffChat, frozen, rulesPending, newbie, ftbEssentials;
     public static long mutedUntil;
     public static int reports;
+    /** Наборы: имя и сколько ждать, мс (-1 больше нельзя). */
+    public static final java.util.Map<String, Long> KITS = new java.util.LinkedHashMap<>();
     private static boolean rulesShown;
     /** Автотест: роль и права не берутся из приветствия (снимок «глазами игрока», макет 14). */
     public static boolean pinned;
@@ -47,6 +49,7 @@ public final class HelmClient {
         fly = god = spectating = staffChat = frozen = rulesPending = newbie = ftbEssentials = false;
         mutedUntil = 0;
         reports = 0;
+        KITS.clear();
         rulesShown = false;
         Roles.setClient(null);
     }
@@ -82,6 +85,8 @@ public final class HelmClient {
         reports = t.getInt("reports");
         newbie = t.getBoolean("newbie");
         ftbEssentials = t.getBoolean("ftbEssentials");
+        KITS.clear();
+        for (Tag x : t.getList("kits", Tag.TAG_COMPOUND)) KITS.put(((CompoundTag) x).getString("name"), ((CompoundTag) x).getLong("left"));
         boolean pending = t.getBoolean("rulesPending");
         Roles.setClient(role);
         Actions.changed();

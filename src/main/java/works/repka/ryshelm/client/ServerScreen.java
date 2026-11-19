@@ -1118,7 +1118,17 @@ public final class ServerScreen extends ScaledScreen {
                 if (!p.isEmpty()) out.add(new String[] {p, "b"});
                 out.add(new String[] {type.equals("fly") ? " полёт" : " бессмертие", ""});
             }
-            case "settings", "perm", "caps" -> {
+            case "kit_create", "kit_delete" -> {
+                out.add(new String[] {a, "b"});
+                out.add(new String[] {" " + Words.verb(type) + " ", ""});
+                out.add(new String[] {d, "b"});
+            }
+            case "kit_give" -> {
+                out.add(new String[] {a, "b"});
+                out.add(new String[] {" выдал набор " + d + " ", ""});
+                out.add(new String[] {p, "b"});
+            }
+            case "settings", "perm", "caps", "whitelist", "afk_kick" -> {
                 out.add(new String[] {a, "b"});
                 out.add(new String[] {" " + Words.verb(type) + " " + d, ""});
             }
@@ -1327,8 +1337,35 @@ public final class ServerScreen extends ScaledScreen {
         y = stepperRow(g, x, y, w, "Журнал хранит, дней", "старые месяцы уходят при запуске сервера", s.getInt("journalDays"), 7, 3650, 30, v -> setInt("journalDays", v));
         Draw.round(g, px + SPLIT, py + HEAD, 0.5f, H - HEAD - 1, 0.02f, t.c("panel.border"));
         int sx = px + SPLIT + 9, sw = W - SPLIT - 18;
+        kits(g, s, sx, py + HEAD + 150, sw);
         Ui.callout(g, t, "Настройки лежат в world/serverconfig/ryshelm-server.json. Каждая правка ложится в журнал. Потолки сроков модератора меняются во вкладке «Роли».", sx, py + HEAD + 12, sw, false);
         Ui.callout(g, t, "Лестница: шаги через запятую, например warn, mute 1h, ban 1d, ban 7d, ban perm. Окно наказания подсказывает следующий шаг по числу наказаний игрока.", sx, py + HEAD + 70, sw, false);
+    }
+
+    /** Наборы (план 9): список, стартовый набор кликом. Собирает оператор командой из своего инвентаря. */
+    private void kits(GuiGraphics g, CompoundTag s, int x, int y, int w) {
+        Ui.caps(g, t, "Наборы", x, y + 3);
+        String starter = s.getString("starterKit");
+        ListTag kits = s.getList("kits", Tag.TAG_COMPOUND);
+        y += 10;
+        if (kits.isEmpty()) {
+            Ui.paragraph(g, "Наборов нет. Соберите из своего инвентаря: /rys admin kits create start once", x, y, w, 11.5f, t.c("text.muted"), 3);
+            return;
+        }
+        for (Tag xk : kits) {
+            CompoundTag k = (CompoundTag) xk;
+            String name = k.getString("name");
+            boolean on = name.equals(starter);
+            works.repka.ryscore.ui.Kit.radio(g, t, hits, x, y + 2, 7, on, mx, my, () -> {
+                CompoundTag a = new CompoundTag();
+                a.putString("name", on ? "" : name);
+                HelmClient.action("kit_starter", a);
+            });
+            Draw.label(g, name, x + 11, y + 5.5f, 12.5f, Weight.MEDIUM, t.c("text.primary"));
+            Ui.right(g, Term.plural(k.getInt("items"), "предмет", "предмета", "предметов") + " · " + k.getString("rule"), x + w, y + 5.5f, 11, Weight.REGULAR, t.c("text.muted"));
+            y += 12;
+        }
+        Draw.label(g, starter.isEmpty() ? "стартовый набор выключен" : "стартовый: «" + starter + "», при первом входе", x, y + 5, 11, Weight.REGULAR, t.c("text.muted"));
     }
 
     interface BoolSet {

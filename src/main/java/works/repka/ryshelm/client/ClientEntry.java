@@ -86,6 +86,9 @@ public final class ClientEntry {
             .state(() -> need("ryshelm.enderchest", "Нет права")).run(() -> HelmClient.action("ender")).register();
         Action.builder(id("trash")).label(tr("trash")).icon(Icons.Shape.TRASH).group(Action.Group.SERVER)
             .state(() -> need("ryshelm.trash", "Нет права")).run(() -> HelmClient.action("trash")).register();
+        Action.builder(id("kits")).label(tr("kits")).icon(Icons.Shape.CHEST).group(Action.Group.SERVER).badge(() -> (int) HelmClient.KITS.values().stream().filter(v -> v == 0).count())
+            .state(() -> !HelmClient.present ? Action.State.off("На сервере нет RYSHelm") : HelmClient.KITS.isEmpty() ? Action.State.off("Наборов нет") : Action.State.ready())
+            .list(ClientEntry::kits).register();
         // модерация
         Action.builder(id("players")).label(tr("players")).icon(Icons.Shape.USERS).group(Action.Group.MODERATION).run(() -> ServerScreen.open("players")).register();
         Action.builder(id("reports")).label(tr("reports")).icon(Icons.Shape.FLAG).group(Action.Group.MODERATION).badge(() -> HelmClient.reports)
@@ -112,6 +115,21 @@ public final class ClientEntry {
             .state(() -> need("ryshelm.cheat", "Нет права")).list(ClientEntry::speeds).register();
         Action.builder(id("invsee")).label(tr("invsee")).icon(Icons.Shape.CHEST).group(Action.Group.OPERATOR)
             .state(() -> need("ryshelm.invsee", "Нет права")).list(() -> players("invsee", "ryshelm.invsee")).register();
+    }
+
+    private static List<Action> kits() {
+        List<Action> out = new ArrayList<>();
+        for (var e : HelmClient.KITS.entrySet()) {
+            String name = e.getKey();
+            long left = e.getValue();
+            Action.State st = left == 0 ? Action.State.ready() : left < 0 ? Action.State.off("Набор берут один раз") : Action.State.pause((int) Math.ceil(left / 1000.0));
+            out.add(Action.builder(id("kit/" + name)).label(Component.literal(name)).icon(Icons.Shape.CHEST).group(Action.Group.SERVER).state(() -> st).run(() -> {
+                CompoundTag a = new CompoundTag();
+                a.putString("name", name);
+                HelmClient.action("kit", a);
+            }).build());
+        }
+        return out;
     }
 
     private static void cheat(String what, float value) {

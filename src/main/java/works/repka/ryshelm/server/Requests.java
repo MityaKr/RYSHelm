@@ -71,6 +71,19 @@ public final class Requests {
                 case "report" -> need(p, HelmPerms.REPORT, () -> Reports.create(p, a.getUUID("target"), a.getInt("rule"), a.getString("text")));
                 case "report_take" -> need(p, HelmPerms.REPORTS, () -> Reports.take(p, a.getLong("id")));
                 case "report_close" -> need(p, HelmPerms.REPORTS, () -> Reports.close(p, a.getLong("id"), a.getString("outcome")));
+                case "kit" -> need(p, HelmPerms.KIT, () -> {
+                    Kits.Kit k = Kits.get(a.getString("name"));
+                    return k == null ? "Нет такого набора" : Kits.give(p, k, false, null);
+                });
+                case "kit_starter" -> need(p, HelmPerms.KIT_MANAGE, () -> {
+                    String name = a.getString("name");
+                    if (!name.isEmpty() && Kits.get(name) == null) return "Нет такого набора";
+                    Helm.settings().starterKit = name;
+                    Helm.saveSettings();
+                    Helm.log("settings", p, null, "", name.isEmpty() ? "стартовый набор выключен" : "стартовый набор «" + name + "»", "");
+                    Sync.staffChanged();
+                    return null;
+                });
                 case "rules_accept" -> Gate.accept(p);
                 case "rules_quit" -> {
                     p.connection.disconnect(Component.literal("Правила сервера не приняты"));

@@ -130,6 +130,11 @@ final class Words {
             case "report_take" -> "взял жалобу на";
             case "report_close" -> "закрыл жалобу на";
             case "join_banned" -> "вошёл, прошлый бан закончился";
+            case "kit_create" -> "собрал набор";
+            case "kit_delete" -> "удалил набор";
+            case "kit_give" -> "выдал набор";
+            case "whitelist" -> "изменил белый список:";
+            case "afk_kick" -> "выход по простою:";
             default -> type;
         };
     }
@@ -154,6 +159,9 @@ final class Words {
             case "speed" -> "SPEED";
             case "moderator_add", "moderator_remove", "perm" -> "KEY";
             case "caps", "settings" -> "GEAR";
+            case "kit_create", "kit_delete", "kit_give" -> "CHEST";
+            case "whitelist" -> "LIST";
+            case "afk_kick" -> "CLOCK";
             case "report", "report_take", "report_close" -> "FLAG";
             case "join_banned" -> "USER";
             default -> "INFO";

@@ -58,9 +58,9 @@ public final class Journal {
         return switch (type) {
             case "warn", "mute", "unmute", "kick", "ban", "unban", "join_banned", "note" -> Category.PUNISH;
             case "invsee", "invsee_edit", "enderchest", "spectate", "spectate_start", "freeze", "unfreeze", "tp", "tphere", "move",
-                 "fly", "god", "heal", "feed", "speed", "extinguish" -> Category.WATCH;
+                 "fly", "god", "heal", "feed", "speed", "extinguish", "kit_give" -> Category.WATCH;
             case "place", "place_set", "place_del" -> Category.PLACES;
-            case "moderator_add", "moderator_remove", "perm", "settings", "caps" -> Category.ROLES;
+            case "moderator_add", "moderator_remove", "perm", "settings", "caps", "kit_create", "kit_delete", "whitelist" -> Category.ROLES;
             case "report", "report_take", "report_close" -> Category.REPORTS;
             default -> Category.OTHER;
         };

@@ -39,14 +39,16 @@ public final class HelmPerms {
     public static final Perms.Node ENDER = node("enderchest", Roles.PLAYER);
     public static final Perms.Node TRASH = node("trash", Roles.PLAYER);
     public static final Perms.Node KICKME = node("kickme", Roles.PLAYER);
+    public static final Perms.Node KIT = node("kit", Roles.PLAYER);
     // оператор
+    public static final Perms.Node KIT_MANAGE = node("kit.manage", Roles.OPERATOR);
     public static final Perms.Node CHEAT = node("cheat", Roles.OPERATOR);
     public static final Perms.Node MOVE = node("move", Roles.OPERATOR);
     public static final Perms.Node ADMIN = node("admin", Roles.OPERATOR);
 
     /** Узлы левой таблицы «Модерация»; остальные узлы семьи идут в правую. */
     public static final List<Perms.Node> MODERATION = List.of(WARN, MUTE, KICK, BAN_TEMP, BAN, REPORTS, INVSEE, INVSEE_EDIT, SPECTATE,
-        FREEZE, JOURNAL, TP, NOTE, ENDER_OTHER, STAFF_CHAT, PLAYERS, REPORT, ENDER, TRASH, KICKME);
+        FREEZE, JOURNAL, TP, PLAYERS, NOTE, ENDER_OTHER, STAFF_CHAT, REPORT);
 
     /** Загружает класс: узлы объявляются при первом обращении. */
     public static void init() {}

@@ -69,6 +69,17 @@ public final class Sync {
         t.putBoolean("rulesPending", Gate.pending(p.getUUID()));
         t.putBoolean("newbie", Gate.newbie(p));
         t.putBoolean("ftbEssentials", Commands.ftbEssentials());
+        if (HelmPerms.KIT.test(p)) {
+            ListTag kits = new ListTag();
+            for (Kits.Kit k : Kits.all()) {
+                CompoundTag x = new CompoundTag();
+                x.putString("name", k.name);
+                long left = Kits.left(p, k);
+                x.putLong("left", left == Long.MAX_VALUE ? -1 : left);
+                kits.add(x);
+            }
+            t.put("kits", kits);
+        }
         HelmNet.send(p, t);
     }
 

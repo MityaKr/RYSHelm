@@ -22,12 +22,10 @@
   "ryshelm.perm.cheat": "Лечить, кормить, полёт, бессмертие",
   "ryshelm.perm.move": "Переставить игрока вне сети",
   "ryshelm.perm.admin": "Роли и настройки сервера",
-
   "key.categories.ryshelm": "RYSHelm: сервер",
   "key.ryshelm.open": "Окно «Сервер»",
   "ryshelm.dock": "Сервер",
   "ryshelm.dock.desc": "Игроки, правила, жалобы, журнал",
-
   "ryshelm.action.open": "Сервер",
   "ryshelm.action.players": "Игроки",
   "ryshelm.action.reports": "Жалобы",
@@ -43,5 +41,8 @@
   "ryshelm.action.feed": "Накормить",
   "ryshelm.action.speed": "Скорость",
   "ryshelm.action.invsee": "Инвентарь игрока",
-  "ryshelm.action.rules": "Правила сервера"
+  "ryshelm.action.rules": "Правила сервера",
+  "ryshelm.perm.kit": "Наборы: брать",
+  "ryshelm.perm.kit.manage": "Наборы: собирать и выдавать",
+  "ryshelm.action.kits": "Наборы"
 }

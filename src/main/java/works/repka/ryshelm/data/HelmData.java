@@ -178,6 +178,8 @@ public final class HelmData {
         /** «Переставить» вне сети: место при следующем входе. */
         public @Nullable Spot moveTo;
         public String moveBy = "";
+        /** Наборы: имя → когда брал. */
+        public Map<String, Long> kits = new LinkedHashMap<>();
         /** Последняя жалоба этого игрока: не чаще раза в 2 минуты. */
         public long lastReport;
     }

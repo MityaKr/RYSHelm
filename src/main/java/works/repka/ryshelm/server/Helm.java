@@ -100,6 +100,7 @@ public final class Helm {
         settings = readJson(settingsFile(s), HelmSettings.class, new HelmSettings()).sane();
         writeJson(settingsFile(s), settings);
         loadRules();
+        Kits.load(s);
         journal = new Journal(worldDir(s).resolve("ryshelm"), settings.journalDays, ZoneId.systemDefault());
         try {
             int n = journal.load(System.currentTimeMillis());
@@ -159,6 +160,10 @@ public final class Helm {
     }
 
     static <T> T readJson(Path file, Class<T> type, T fallback) {
+        return readJson(file, (java.lang.reflect.Type) type, fallback);
+    }
+
+    static <T> T readJson(Path file, java.lang.reflect.Type type, T fallback) {
         if (!Files.exists(file)) return fallback;
         try {
             T t = GSON.fromJson(Files.readString(file, StandardCharsets.UTF_8), type);
@@ -278,7 +283,8 @@ public final class Helm {
     public static void login(ServerPlayer p) {
         long now = System.currentTimeMillis();
         HelmData.PlayerInfo info = data.player(p.getUUID(), p.getGameProfile().getName());
-        if (info.firstSeen == 0) info.firstSeen = now;
+        boolean first = info.firstSeen == 0;
+        if (first) info.firstSeen = now;
         info.lastSeen = now;
         if (data.moderators.containsKey(p.getUUID())) data.moderators.put(p.getUUID(), p.getGameProfile().getName());
         dirty();
@@ -297,6 +303,7 @@ public final class Helm {
                 Sync.date(lastBan.revoked > 0 ? lastBan.revoked : lastBan.expires), (noted ? "есть заметка" : "") + "#" + lastBan.id);
         }
         Staff.login(p, info);
+        if (first) Kits.firstJoin(p);
         Sync.hello(p);
         Gate.login(p, info);
         List<String> mail = data.mail.remove(p.getUUID());

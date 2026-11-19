@@ -355,6 +355,16 @@ final class Views {
         t.putInt("reportCooldown", s.reportCooldown);
         t.putString("rulesFile", "config/ryshelm/rules.md");
         t.putString("rulesVersion", Helm.rules().version());
+        t.putString("starterKit", s.starterKit);
+        ListTag kits = new ListTag();
+        for (Kits.Kit k : Kits.all()) {
+            CompoundTag x = new CompoundTag();
+            x.putString("name", k.name);
+            x.putInt("items", k.items.size());
+            x.putString("rule", works.repka.ryshelm.logic.KitRule.label(k.cooldown));
+            kits.add(x);
+        }
+        t.put("kits", kits);
         t.putInt("rulesCount", Helm.rules().rules().size());
         return t;
     }
