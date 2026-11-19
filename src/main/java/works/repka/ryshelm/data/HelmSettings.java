@@ -39,6 +39,8 @@ public final class HelmSettings {
     public int journalDays = 90;
     /** Пауза между жалобами одного игрока, секунды. */
     public int reportCooldown = 120;
+    /** Сколько дней хранится закрытая жалоба. */
+    public int reportDays = 90;
     /** Сколько строк чата нарушителя приложить к жалобе. */
     public int reportChatLines = 20;
 
@@ -57,6 +59,7 @@ public final class HelmSettings {
         journalDays = Math.max(7, Math.min(3650, journalDays));
         reportCooldown = Math.max(0, Math.min(86400, reportCooldown));
         reportChatLines = Math.max(0, Math.min(100, reportChatLines));
+        reportDays = Math.max(7, Math.min(3650, reportDays));
         spamMessages = Math.max(2, Math.min(50, spamMessages));
         spamSeconds = Math.max(2, Math.min(120, spamSeconds));
         spamMuteMinutes = Math.max(0, Math.min(1440, spamMuteMinutes));

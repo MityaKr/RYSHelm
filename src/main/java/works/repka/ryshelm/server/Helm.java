@@ -31,7 +31,24 @@ import works.repka.ryshelm.logic.RulesText;
  * сервера. Права проверяются здесь и в {@link Requests}, клиенту не верим.
  */
 public final class Helm {
+    /** Файлы, которые правят руками (настройки, наборы): с отступами. */
     public static final Gson GSON = new GsonBuilder().setPrettyPrinting().disableHtmlEscaping().create();
+    /** Данные сервера: без отступов, игроки отдельным файлом (разбор логики 19.11, п. 2). */
+    static final Gson DATA_GSON = new GsonBuilder().disableHtmlEscaping().addSerializationExclusionStrategy(new com.google.gson.ExclusionStrategy() {
+        @Override
+        public boolean shouldSkipField(com.google.gson.FieldAttributes f) {
+            return f.getDeclaringClass() == HelmData.class && f.getName().equals("players");
+        }
+
+        @Override
+        public boolean shouldSkipClass(Class<?> c) {
+            return false;
+        }
+    }).create();
+    static final Gson PLAIN = new GsonBuilder().disableHtmlEscaping().create();
+    private static final java.lang.reflect.Type PLAYERS_TYPE = new com.google.gson.reflect.TypeToken<java.util.LinkedHashMap<UUID, HelmData.PlayerInfo>>() {}.getType();
+    /** Запись на диск в своём потоке: главный поток только собирает строку. */
+    private static @Nullable java.util.concurrent.ExecutorService writer;
 
     private static @Nullable MinecraftServer server;
     private static HelmData data = new HelmData();
@@ -39,7 +56,7 @@ public final class Helm {
     private static RulesText rules = RulesText.parse(RulesText.DEFAULT);
     private static long rulesDate;
     private static @Nullable Journal journal;
-    private static boolean dirty;
+    private static boolean dirty, dirtyPlayers;
     private static int ticks;
 
     private Helm() {}
@@ -68,8 +85,15 @@ public final class Helm {
         return rulesDate;
     }
 
+    /** Поменялись данные сервера (и, может быть, игроков): запишутся оба файла. */
     public static void dirty() {
         dirty = true;
+        dirtyPlayers = true;
+    }
+
+    /** Поменялись только сведения об игроках (вход, выход): пишется только {@code players.json}. */
+    public static void dirtyPlayers() {
+        dirtyPlayers = true;
     }
 
     // ---- пути ----
@@ -80,6 +104,26 @@ public final class Helm {
 
     static Path dataFile(MinecraftServer s) {
         return worldDir(s).resolve("ryshelm").resolve("helm.json");
+    }
+
+    static Path playersFile(Path world) {
+        return world.resolve("ryshelm").resolve("players.json");
+    }
+
+    /** Данные мира: {@code helm.json} и {@code players.json}; старый {@code helm.json} с игроками внутри тоже читается. */
+    static HelmData readData(Path world) {
+        HelmData d = readJson(world.resolve("ryshelm").resolve("helm.json"), HelmData.class, new HelmData());
+        if (d.moderators == null) d = new HelmData();
+        java.util.LinkedHashMap<UUID, HelmData.PlayerInfo> players = readJson(playersFile(world), PLAYERS_TYPE, null);
+        if (players != null) d.players = players;
+        if (d.players == null) d.players = new java.util.LinkedHashMap<>();
+        return d;
+    }
+
+    /** Записать оба файла сейчас, в этом потоке (шаг переезда без запущенного мода). */
+    static void writeData(Path world, HelmData d) {
+        writeText(world.resolve("ryshelm").resolve("helm.json"), DATA_GSON.toJson(d));
+        writeText(playersFile(world), PLAIN.toJson(d.players, PLAYERS_TYPE));
     }
 
     static Path settingsFile(MinecraftServer s) {
@@ -95,8 +139,12 @@ public final class Helm {
     public static void start(MinecraftServer s) {
         server = s;
         ticks = 0;
-        data = readJson(dataFile(s), HelmData.class, new HelmData());
-        if (data.moderators == null) data = new HelmData();
+        data = readData(worldDir(s));
+        writer = java.util.concurrent.Executors.newSingleThreadExecutor(r -> {
+            Thread t = new Thread(r, "ryshelm-save");
+            t.setDaemon(true);
+            return t;
+        });
         settings = readJson(settingsFile(s), HelmSettings.class, new HelmSettings()).sane();
         writeJson(settingsFile(s), settings);
         loadRules();
@@ -108,6 +156,7 @@ public final class Helm {
         } catch (IOException e) {
             RYSHelm.LOG.error("[ryshelm] журнал не прочитан", e);
         }
+        prune();
         Staff.restoreAfterCrash(s);
         RYSHelm.LOG.info("[ryshelm] запущен: модераторов {}, наказаний {}, жалоб {}, правила {} ({} пунктов){}", data.moderators.size(),
             data.punishments.size(), data.reports.size(), rules.version(), rules.rules().size(), settings.rulesOnJoin ? ", при входе" : "");
@@ -116,6 +165,17 @@ public final class Helm {
     public static void stop() {
         if (server == null) return;
         save();
+        // сервер останавливается: дождаться записи на диск
+        java.util.concurrent.ExecutorService w = writer;
+        writer = null;
+        if (w != null) {
+            w.shutdown();
+            try {
+                if (!w.awaitTermination(15, java.util.concurrent.TimeUnit.SECONDS)) RYSHelm.LOG.error("[ryshelm] запись данных не закончилась за 15 с");
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+        }
         Staff.clear();
         Chat.clear();
         Afk.clear();
@@ -131,13 +191,46 @@ public final class Helm {
             Afk.tick(server);
             Sync.tick(server);
         }
-        if (dirty && ticks % 200 == 0) save();
+        if ((dirty || dirtyPlayers) && ticks % 200 == 0) save();
+        if (ticks % 72000 == 0) prune();
     }
 
+    /** Собрать строки в главном потоке (данные не меняются под записью) и отдать их потоку записи. */
     public static void save() {
-        if (server == null || !dirty) return;
+        if (server == null || (!dirty && !dirtyPlayers)) return;
+        Path world = worldDir(server);
+        String main = dirty ? DATA_GSON.toJson(data) : null;
+        String players = dirtyPlayers ? PLAIN.toJson(data.players, PLAYERS_TYPE) : null;
         dirty = false;
-        writeJson(dataFile(server), data);
+        dirtyPlayers = false;
+        Runnable job = () -> {
+            if (main != null) writeText(world.resolve("ryshelm").resolve("helm.json"), main);
+            if (players != null) writeText(playersFile(world), players);
+        };
+        java.util.concurrent.ExecutorService w = writer;
+        if (w != null && !w.isShutdown()) w.execute(job);
+        else job.run();
+    }
+
+    /** Записать сейчас и дождаться диска: шаг переезда ставит отметку только после записи. */
+    public static void flush() {
+        save();
+        java.util.concurrent.ExecutorService w = writer;
+        if (w == null || w.isShutdown()) return;
+        try {
+            w.submit(() -> {}).get(15, java.util.concurrent.TimeUnit.SECONDS);
+        } catch (Exception e) {
+            RYSHelm.LOG.error("[ryshelm] запись данных не дождались", e);
+        }
+    }
+
+    /** Закрытые жалобы старше срока уходят, их чат чистится через неделю (разбор логики 19.11, п. 2). */
+    static void prune() {
+        int n = data.prune(System.currentTimeMillis(), settings.reportDays * works.repka.ryshelm.logic.Term.DAY, 7 * works.repka.ryshelm.logic.Term.DAY);
+        if (n > 0) {
+            dirty();
+            RYSHelm.LOG.info("[ryshelm] старых жалоб и строк чата убрано: {}", n);
+        }
     }
 
     /** Правила перечитываются при запуске и командой; нет файла: кладутся правила по умолчанию. */
@@ -184,10 +277,14 @@ public final class Helm {
     }
 
     static void writeJson(Path file, Object value) {
+        writeText(file, GSON.toJson(value));
+    }
+
+    static void writeText(Path file, String text) {
         try {
             Files.createDirectories(file.getParent());
             Path tmp = file.resolveSibling(file.getFileName() + ".tmp");
-            Files.writeString(tmp, GSON.toJson(value), StandardCharsets.UTF_8);
+            Files.writeString(tmp, text, StandardCharsets.UTF_8);
             Files.move(tmp, file, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
         } catch (IOException e) {
             RYSHelm.LOG.error("[ryshelm] не записан {}", file, e);
@@ -290,8 +387,11 @@ public final class Helm {
         boolean first = info.firstSeen == 0;
         if (first) info.firstSeen = now;
         info.lastSeen = now;
-        if (data.moderators.containsKey(p.getUUID())) data.moderators.put(p.getUUID(), p.getGameProfile().getName());
-        dirty();
+        if (data.moderators.containsKey(p.getUUID()) && !p.getGameProfile().getName().equals(data.moderators.get(p.getUUID()))) {
+            data.moderators.put(p.getUUID(), p.getGameProfile().getName());
+            dirty();
+        }
+        dirtyPlayers();
         // прошлый бан закончился: событие в журнал (макет 12, «вошёл, прошлый бан закончился 12.11»)
         HelmData.Punishment lastBan = null;
         for (HelmData.Punishment x : data.of(p.getUUID())) {
@@ -332,7 +432,7 @@ public final class Helm {
         info.lastSeen = System.currentTimeMillis();
         info.played = played(p);
         info.lastPos = spot(p);
-        dirty();
+        dirtyPlayers();
         Staff.logout(p);
         Chat.logout(p);
         Afk.logout(p);

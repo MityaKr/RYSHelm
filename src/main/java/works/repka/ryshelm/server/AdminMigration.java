@@ -65,13 +65,12 @@ public final class AdminMigration implements Migrations.Step {
         if (Helm.running() && server != null && Helm.server() == server) {
             AdminImport.apply(src, Helm.data(), names, now, report);
             Helm.dirty();
-            Helm.save();
+            Helm.flush();
             Sync.staffChanged();
         } else {
-            Path file = world.resolve("ryshelm").resolve("helm.json");
-            HelmData data = Helm.readJson(file, HelmData.class, new HelmData());
+            HelmData data = Helm.readData(world);
             AdminImport.apply(src, data, names, now, report);
-            Helm.writeJson(file, data);
+            Helm.writeData(world, data);
         }
         return report;
     }

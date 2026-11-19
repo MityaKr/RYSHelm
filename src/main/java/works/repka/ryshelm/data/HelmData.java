@@ -110,6 +110,28 @@ public final class HelmData {
         return null;
     }
 
+    /**
+     * Срок хранения: закрытые жалобы старше {@code keepClosed} уходят, у закрытых старше {@code keepChat} чат чистится.
+     * @return сколько жалоб убрано и сколько чатов очищено
+     */
+    public int prune(long now, long keepClosed, long keepChat) {
+        int n = 0;
+        var it = reports.iterator();
+        while (it.hasNext()) {
+            Report r = it.next();
+            if (r.state != Report.State.CLOSED) continue;
+            long closed = r.closedAt > 0 ? r.closedAt : r.time;
+            if (now - closed > keepClosed) {
+                it.remove();
+                n++;
+            } else if (now - closed > keepChat && !r.chat.isEmpty()) {
+                r.chat.clear();
+                n++;
+            }
+        }
+        return n;
+    }
+
     /** История для лестницы. */
     public List<Ladder.Past> past(UUID target) {
         List<Ladder.Past> out = new ArrayList<>();
