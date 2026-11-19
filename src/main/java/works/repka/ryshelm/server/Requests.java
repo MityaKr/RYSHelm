@@ -259,6 +259,8 @@ public final class Requests {
             return n + " не модератор";
         }
         Helm.dirty();
+        // ядро 1.15 помнит роль 10 с: новая роль видна сразу
+        works.repka.ryscore.perm.Roles.invalidate(target);
         Helm.log(on ? "moderator_add" : "moderator_remove", actor, target, n, "", "");
         Sync.helloAll(server);
         return null;

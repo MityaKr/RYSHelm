@@ -52,6 +52,7 @@ public final class HelmClient {
         KITS.clear();
         rulesShown = false;
         Roles.setClient(null);
+        Roles.setModerationActive(false);
     }
 
     public static void accept(CompoundTag t) {
@@ -89,6 +90,8 @@ public final class HelmClient {
         for (Tag x : t.getList("kits", Tag.TAG_COMPOUND)) KITS.put(((CompoundTag) x).getString("name"), ((CompoundTag) x).getLong("left"));
         boolean pending = t.getBoolean("rulesPending");
         Roles.setClient(role);
+        // ядро 1.15: кольцо «Модерация» у оператора видно, только пока идёт модерация
+        Roles.setModerationActive(t.getBoolean("moderation"));
         Actions.changed();
         if (pending && !rulesShown) {
             rulesShown = true;

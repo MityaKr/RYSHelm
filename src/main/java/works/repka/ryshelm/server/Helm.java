@@ -140,6 +140,8 @@ public final class Helm {
         server = s;
         ticks = 0;
         data = readData(worldDir(s));
+        // роли ядра считались без списка модераторов этого мира
+        Roles.invalidateAll();
         writer = java.util.concurrent.Executors.newSingleThreadExecutor(r -> {
             Thread t = new Thread(r, "ryshelm-save");
             t.setDaemon(true);

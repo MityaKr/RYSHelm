@@ -132,6 +132,16 @@ public final class HelmData {
         return n;
     }
 
+    /**
+     * Идёт ли на сервере модерация (ядро 1.15, кольцо «Модерация» у оператора): назначен хоть один модератор или есть
+     * незакрытая жалоба.
+     */
+    public boolean moderationActive() {
+        if (!moderators.isEmpty()) return true;
+        for (Report r : reports) if (r.state != Report.State.CLOSED) return true;
+        return false;
+    }
+
     /** История для лестницы. */
     public List<Ladder.Past> past(UUID target) {
         List<Ladder.Past> out = new ArrayList<>();

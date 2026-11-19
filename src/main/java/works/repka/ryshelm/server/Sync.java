@@ -66,6 +66,7 @@ public final class Sync {
         HelmData.Punishment mute = Punish.muted(p.getUUID());
         if (mute != null) t.putLong("mutedUntil", mute.expires == 0 ? Long.MAX_VALUE : mute.expires);
         t.putInt("reports", HelmPerms.REPORTS.test(p) ? Reports.open() : 0);
+        t.putBoolean("moderation", Helm.data().moderationActive());
         t.putBoolean("rulesPending", Gate.pending(p.getUUID()));
         t.putBoolean("newbie", Gate.newbie(p));
         t.putBoolean("ftbEssentials", Commands.ftbEssentials());

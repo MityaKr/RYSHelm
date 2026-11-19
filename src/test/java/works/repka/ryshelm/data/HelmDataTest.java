@@ -45,6 +45,22 @@ class HelmDataTest {
     }
 
     @Test
+    void moderationActive() {
+        HelmData d = new HelmData();
+        assertEquals(false, d.moderationActive());
+        HelmData.Report r = new HelmData.Report();
+        r.state = HelmData.Report.State.NEW;
+        d.reports.add(r);
+        assertEquals(true, d.moderationActive(), "открытая жалоба");
+        r.state = HelmData.Report.State.TAKEN;
+        assertEquals(true, d.moderationActive(), "взятая тоже открыта");
+        r.state = HelmData.Report.State.CLOSED;
+        assertEquals(false, d.moderationActive());
+        d.moderators.put(UUID.randomUUID(), "Vasya_M");
+        assertEquals(true, d.moderationActive(), "назначен модератор");
+    }
+
+    @Test
     void replacedListIsReindexed() {
         HelmData d = new HelmData();
         UUID a = UUID.randomUUID();
