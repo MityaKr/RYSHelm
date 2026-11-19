@@ -70,6 +70,9 @@ public final class Journal {
     private final ZoneId zone;
     private final Deque<Entry> recent = new ArrayDeque<>();
     private int retentionDays;
+    // открытый файл месяца (разбор логики 19.11, п. 6): запись в буфер, на диск раз в секунду и при остановке
+    private @Nullable BufferedWriter out;
+    private @Nullable Path outFile;
 
     public Journal(Path dir, int retentionDays, ZoneId zone) {
         this.dir = dir;
@@ -129,17 +132,33 @@ public final class Journal {
         while (recent.size() > KEEP) recent.removeFirst();
     }
 
-    /** Дописать запись в файл месяца и в память. */
+    /** Дописать запись в буфер файла месяца и в память. На диск она попадёт при {@link #flush} или {@link #close}. */
     public Entry add(Entry e) throws IOException {
         if (e.t == 0) e.t = System.currentTimeMillis();
         remember(e);
-        Files.createDirectories(dir);
         Path file = dir.resolve(fileName(YearMonth.from(Instant.ofEpochMilli(e.t).atZone(zone))));
-        try (BufferedWriter w = Files.newBufferedWriter(file, StandardCharsets.UTF_8, StandardOpenOption.CREATE, StandardOpenOption.APPEND)) {
-            w.write(GSON.toJson(e));
-            w.write('\n');
+        if (out == null || !file.equals(outFile)) {
+            close();
+            Files.createDirectories(dir);
+            out = Files.newBufferedWriter(file, StandardCharsets.UTF_8, StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+            outFile = file;
         }
+        out.write(GSON.toJson(e));
+        out.write('\n');
         return e;
+    }
+
+    /** Сбросить буфер на диск. */
+    public void flush() throws IOException {
+        if (out != null) out.flush();
+    }
+
+    /** Сбросить и закрыть файл месяца; следующая запись откроет его снова. */
+    public void close() throws IOException {
+        BufferedWriter w = out;
+        out = null;
+        outFile = null;
+        if (w != null) w.close();
     }
 
     /** Записи по фильтру, новые сверху, не больше {@code limit}. */

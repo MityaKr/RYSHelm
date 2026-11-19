@@ -31,9 +31,11 @@ class JournalTest {
         Journal.Entry e2 = Journal.entry("invsee", mod, "Vasya_M", grib, "Grib_ok", "", "только смотрел");
         e2.t = at(2026, 11, 19);
         j.add(e2);
+        j.flush();
         assertTrue(Files.exists(dir.resolve("journal-2026-10.jsonl")));
         assertTrue(Files.exists(dir.resolve("journal-2026-11.jsonl")));
 
+        j.close();
         Journal again = new Journal(dir, 90, Z);
         assertEquals(2, again.load(at(2026, 11, 19)));
         var list = again.query(e -> true, 10);
@@ -54,12 +56,29 @@ class JournalTest {
         Journal.Entry fresh = Journal.entry("warn", null, "консоль", null, "Y", "", "");
         fresh.t = at(2026, 11, 10);
         j.add(fresh);
+        j.close();
         Files.writeString(dir.resolve("journal-2026-11.jsonl"), "{битая строка\n", StandardCharsets.UTF_8, StandardOpenOption.APPEND);
 
         Journal again = new Journal(dir, 30, Z);
         assertEquals(1, again.load(at(2026, 11, 19)));
         assertFalse(Files.exists(dir.resolve("journal-2026-06.jsonl")));
         assertEquals("Y", again.query(e -> true, 5).get(0).pn);
+    }
+
+    @Test
+    void bufferedUntilFlush(@TempDir Path dir) throws Exception {
+        Journal j = new Journal(dir, 90, Z);
+        Journal.Entry e = Journal.entry("warn", null, "консоль", null, "X", "", "");
+        e.t = at(2026, 11, 19);
+        j.add(e);
+        assertEquals(1, j.query(x -> true, 5).size(), "в памяти сразу");
+        j.flush();
+        assertTrue(Files.readString(dir.resolve("journal-2026-11.jsonl"), StandardCharsets.UTF_8).contains("\"warn\""));
+        Journal.Entry next = Journal.entry("kick", null, "консоль", null, "Y", "", "");
+        next.t = at(2026, 12, 1);
+        j.add(next);
+        j.close();
+        assertTrue(Files.exists(dir.resolve("journal-2026-12.jsonl")), "новый месяц в новом файле");
     }
 
     @Test

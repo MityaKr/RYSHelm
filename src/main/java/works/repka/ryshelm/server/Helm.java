@@ -165,6 +165,13 @@ public final class Helm {
     public static void stop() {
         if (server == null) return;
         save();
+        if (journal != null) {
+            try {
+                journal.close();
+            } catch (IOException e) {
+                RYSHelm.LOG.error("[ryshelm] журнал не закрыт", e);
+            }
+        }
         // сервер останавливается: дождаться записи на диск
         java.util.concurrent.ExecutorService w = writer;
         writer = null;
@@ -190,6 +197,7 @@ public final class Helm {
         Staff.tick(server);
         Requests.tick(server);
         if (ticks % 20 == 0) {
+            flushJournal();
             Afk.tick(server);
             Sync.tick(server);
         }
@@ -356,6 +364,16 @@ public final class Helm {
 
     public static void log(String type, @Nullable ServerPlayer actor, @Nullable UUID target, String targetName, String detail, String note) {
         log(type, actor == null ? null : actor.getUUID(), actor == null ? "консоль" : actor.getGameProfile().getName(), target, targetName, detail, note);
+    }
+
+    static void flushJournal() {
+        Journal j = journal;
+        if (j == null) return;
+        try {
+            j.flush();
+        } catch (IOException e) {
+            RYSHelm.LOG.error("[ryshelm] журнал не сброшен на диск", e);
+        }
     }
 
     public static @Nullable Journal journal() {
