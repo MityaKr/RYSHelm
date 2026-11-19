@@ -227,20 +227,23 @@ public final class ServerScreen extends ScaledScreen {
             int count = x == Tab.REPORTS ? HelmClient.reports : -1;
             tabs.add(new Kit.Tab(x.label, count > 0 ? count : -1, tab == x, () -> switchTab(x)));
         }
-        int tabsX = px + 70;
-        Kit.tabs(g, t, hits, tabsX, py, HEAD, px + 418 - tabsX, tabs, mx, my);
+        int tabsX = px + 58;
+        Kit.tabs(g, t, hits, tabsX, py, HEAD, px + 420 - tabsX, tabs, mx, my);
         // поиск, шестерёнка клавиш, закрыть
-        Ui.input(g, t, search, px + 425, py + 6, 120, 16, mx, my);
+        Ui.input(g, t, search, px + 425, py + 6, 125, 16, mx, my);
         if (search.getValue().isEmpty() && !search.isFocused()) {
             Draw.magnifier(g, px + 429, py + 11, t.c("text.muted"));
+            // подсказка клавиши «/» справа в поле
+            Draw.roundBox(g, px + 538, py + 10, 8, 8, 2f, t.c("filter.active.bg"), t.c("panel.border"));
+            Draw.label(g, "/", px + 540.5f, py + 14, 10, Weight.MEDIUM, t.c("text.muted"));
         }
-        int gx = px + W - 47;
+        int gx = px + 554;
         boolean hot = Kit.over(mx, my, gx, py + 6, 17, 17);
         Kit.iconButton(g, t, gx, py + 6, 17, hot);
         Icons.draw(g, Icons.Shape.GEAR, gx + 4.5f, py + 10.5f, 8, hot ? t.c("accent") : t.c("button.fg"));
         hits.add(gx, py + 6, 17, 17, b -> Actions.openKeys(this));
         if (hot) tooltip = List.of("Клавиши и колесо");
-        Kit.close(g, t, hits, px + W - 26, py + 5, mx, my, this::onClose);
+        Kit.close(g, t, hits, px + 575, py + 5, mx, my, this::onClose);
     }
 
     void switchTab(Tab x) {
@@ -1207,15 +1210,15 @@ public final class ServerScreen extends ScaledScreen {
             (n.getBoolean("moderation") ? mod : other).add(n);
         }
         int tableTop = top + 30, bottom = py + H - 8;
-        int step = 16;
-        int content = Math.max(20 + mod.size() * step, 20 + other.size() * step + 90);
+        int step = 18;
+        int content = Math.max(24 + mod.size() * step, 24 + other.size() * step + 100);
         int scroll = Math.round(rolesScroll.update(Math.max(0, content - (bottom - tableTop))));
         hits.clip(tableTop, bottom);
         Draw.scissor(g, px + 1, tableTop, px + W - 1, bottom);
         int ty = tableTop - scroll;
-        table(g, "Модерация", mod, left, ty, 320, edit && !lp, mods, ops.size(), step, r);
+        table(g, "Модерация", mod, left, ty, 321, new int[] {147, 88, 29}, edit && !lp, mods, ops.size(), step, r);
         int rx = px + 340;
-        int endY = table(g, "Места, приват, оператор", other, rx, ty, W - 350, edit && !lp, mods, ops.size(), step, r);
+        int endY = table(g, "Места, приват, оператор", other, rx, ty, W - 350, new int[] {105, 63, 21}, edit && !lp, mods, ops.size(), step, r);
         int iy = endY + 8;
         String info = lp ? "На сервере стоит LuckPerms: права решает он. Таблица показывает узлы и наше умолчание, клик по узлу копирует его имя. Узел, который в LuckPerms не задан, решает умолчание таблицы."
             : "LuckPerms на сервере нет: права решает эта таблица. Поставите LuckPerms, он станет главным, а таблица покажет узлы, которые туда переписать. Моды семьи добавляют сюда свои строки сами.";
@@ -1226,8 +1229,8 @@ public final class ServerScreen extends ScaledScreen {
     }
 
     /** Таблица прав; возвращает низ. */
-    private int table(GuiGraphics g, String title, List<CompoundTag> nodes, int x, int y, int w, boolean edit, int mods, int ops, int step, CompoundTag r) {
-        int c1 = x + w - 118, c2 = x + w - 66, c3 = x + w - 18;
+    private int table(GuiGraphics g, String title, List<CompoundTag> nodes, int x, int y, int w, int[] cols, boolean edit, int mods, int ops, int step, CompoundTag r) {
+        int c1 = x + w - cols[0], c2 = x + w - cols[1], c3 = x + w - cols[2];
         Ui.caps(g, t, title, x + 2, y + 9);
         column(g, "Игрок", "все", c1, y);
         column(g, "Модератор", Term.plural(mods, "игрок", "игрока", "игроков"), c2, y);
@@ -1239,17 +1242,17 @@ public final class ServerScreen extends ScaledScreen {
             String id = n.getString("id");
             String label = n.contains("key") ? Component.translatable(n.getString("key")).getString() : n.getString("label");
             if (label.equals(n.getString("key"))) label = n.getString("label");
-            Icons.draw(g, nodeIcon(id), x + 3, ry + 3, 6, t.c("text.secondary"));
+            Icons.draw(g, nodeIcon(id), x + 3, ry + 6, 6, t.c("text.secondary"));
             float room = c1 - x - 32;
-            Draw.label(g, Draw.ellipsize(label, room, 12.5f, Weight.MEDIUM), x + 14, ry + 5, 12.5f, Weight.MEDIUM, t.c("text.primary"));
-            Draw.label(g, id, x + 14, ry + 12.5f, 10, Weight.REGULAR, t.c("text.muted"));
+            Draw.label(g, Draw.ellipsize(label, room, 12.5f, Weight.MEDIUM), x + 14, ry + 6, 12.5f, Weight.MEDIUM, t.c("text.primary"));
+            Draw.label(g, id, x + 14, ry + 13.5f, 10, Weight.REGULAR, t.c("text.muted"));
             if (r.getBoolean("luckperms") && Kit.over(mx, my, x + 14, ry + 9, (int) Draw.labelWidth(id, 10, Weight.REGULAR), 7)) {
                 tooltip = List.of("Клик копирует узел: " + id);
                 hits.add(x + 14, ry + 9, (int) Draw.labelWidth(id, 10, Weight.REGULAR), 7, b -> Minecraft.getInstance().keyboardHandler.setClipboard(id));
             }
             cell(g, n, "player", c1, ry, edit);
             cell(g, n, "moderator", c2, ry, edit);
-            Kit.checkbox(g, t, hits, c3 - 4, ry + 4, true, mx, my, null);
+            Kit.checkbox(g, t, hits, c3 - 4, ry + 5, true, mx, my, null);
             // потолок модератора у заглушения и бана на срок
             if (id.equals("ryshelm.mute") || id.equals("ryshelm.ban.temp")) {
                 boolean mute = id.equals("ryshelm.mute");
@@ -1286,7 +1289,7 @@ public final class ServerScreen extends ScaledScreen {
 
     private void cell(GuiGraphics g, CompoundTag n, String role, int cx, int ry, boolean edit) {
         boolean on = n.getBoolean(role);
-        Kit.checkbox(g, t, hits, cx - 4, ry + 4, on, mx, my, edit ? () -> {
+        Kit.checkbox(g, t, hits, cx - 4, ry + 5, on, mx, my, edit ? () -> {
             CompoundTag a = new CompoundTag();
             a.putString("node", n.getString("id"));
             a.putString("role", role);
