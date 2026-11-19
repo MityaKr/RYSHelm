@@ -65,10 +65,13 @@ final class HelmAutoTestA3 {
             Gate.settingsChanged(server());
             Sync.helloAll(server());
         });
+        // хозяин мира оператор: с 0.2.3 персонал не ждёт принятия (ожидание игрока проверяет duo, Beta); окно открываем сами
+        step("персонал не ждёт", () -> {
+            check("оператор, включивший правила, не ждёт их принятия", !gatePending());
+            RulesScreen.request();
+        }, 20);
         await("окно правил открылось", () -> mc().screen instanceof RulesScreen && View.rules.getList("items", 10).size() > 0);
-        step("пауза", () -> check("правила не приняты: сервер держит игрока", gatePending()), 20);
         shot("13_join_rules");
-        step("чат до правил", () -> mc().player.connection.sendChat("до правил"), 10);
         step("принять", () -> {
             act("rules_accept", new CompoundTag());
             mc().setScreen(null);

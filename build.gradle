@@ -62,18 +62,21 @@ neoForge {
             client()
             gameDirectory = project.file('run-duo/alpha')
             systemProperty 'ryshelm.duo', 'alpha'
+            jvmArguments.add '-Xmx3G'
             programArguments.addAll '--username', 'Alpha', '--width', '1280', '--height', '800'
         }
         duoBeta {
             client()
             gameDirectory = project.file('run-duo/beta')
             systemProperty 'ryshelm.duo', 'beta'
+            jvmArguments.add '-Xmx3G'
             programArguments.addAll '--username', 'Beta', '--width', '1280', '--height', '800'
         }
         autotest {
             client()
             gameDirectory = project.file('run')
             systemProperty 'ryshelm.autotest', project.findProperty('autotest') ?: 'ui'
+            jvmArguments.add "-Xmx${project.findProperty('heap') ?: '4G'}"
             systemProperty 'ryshelm.autotest.fixtures', project.findProperty('fixtures') ?: project.file('../../_shared/_saved/fixtures/ftb-2026-11-18').absolutePath
             programArguments.addAll '--width', '1280', '--height', '800'
         }

@@ -39,7 +39,8 @@ public final class Gate {
 
     /**
      * Ждать принятия правил: правила нужны и игрок не персонал. Модераторы и операторы правила пишут и включают сами, их не
-     * запираем (ночные проверки 19.11: оператор, включивший правила, оставался без чата). Окно правил они видят как все.
+     * запираем (ночные проверки 19.11: оператор, включивший правила, оставался без чата). Окно правил само им не открывается,
+     * прочитать и принять можно командой {@code /rys rules}.
      */
     static boolean blocks(ServerPlayer p, HelmData.PlayerInfo info) {
         return needs(info) && !works.repka.ryscore.perm.Roles.atLeast(p, works.repka.ryscore.perm.Roles.MODERATOR);
