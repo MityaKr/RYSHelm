@@ -9,7 +9,9 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Лестница наказаний сервера (план 5.4, окно наказания): шаги по порядку, по ним подсказка «Следующий шаг по правилам
  * сервера: заглушить на 1 ч. Дальше по лестнице: бан на 1 день». Шаг выбирается числом наказаний игрока за окно
- * (по умолчанию 30 дней); снятые наказания не считаются, последний шаг повторяется.
+ * (по умолчанию 30 дней); снятые наказания не считаются, последний шаг повторяется. Наказание со сроком (заглушить, бан)
+ * считается, только пока действует: истёкший бан в счёт не идёт (решение 19.11, макет 09). Предупреждение и «выгнать»
+ * срока не имеют и считаются в окне.
  *
  * <p>Строка настроек: {@code warn, mute 1h, ban 1d, ban 7d, ban perm}.
  */
@@ -34,8 +36,12 @@ public final class Ladder {
         }
     }
 
-    /** Прошлое наказание для счёта: вид, когда дано, снято ли. */
-    public record Past(Kind kind, long created, boolean revoked) {}
+    /** Прошлое наказание для счёта: вид, когда дано, снято ли, когда кончается (0 навсегда или без срока). */
+    public record Past(Kind kind, long created, boolean revoked, long expires) {
+        public Past(Kind kind, long created, boolean revoked) {
+            this(kind, created, revoked, 0);
+        }
+    }
 
     /** Подсказка окна: сколько уже было, следующий шаг и шаг за ним. */
     public record Hint(int count, int warnings, long since, Step next, @Nullable Step after) {}
@@ -100,10 +106,16 @@ public final class Ladder {
         return b.toString();
     }
 
-    /** Наказания, которые считаются: не сняты и в окне, любого вида. */
+    /** Считается ли наказание: не снято; со сроком пока действует, без срока (предупреждение, «выгнать») в окне. */
+    private boolean counts(Past p, long now) {
+        if (p.revoked) return false;
+        if (p.kind.timed()) return p.expires == 0 || p.expires > now;
+        return now - p.created <= window;
+    }
+
     private int counted(Collection<Past> history, long now) {
         int n = 0;
-        for (Past p : history) if (!p.revoked && now - p.created <= window) n++;
+        for (Past p : history) if (counts(p, now)) n++;
         return n;
     }
 
@@ -113,7 +125,7 @@ public final class Ladder {
         int warnings = 0;
         long since = now;
         for (Past p : history) {
-            if (p.revoked || now - p.created > window) continue;
+            if (!counts(p, now)) continue;
             if (p.kind == Kind.WARN) warnings++;
             since = Math.min(since, p.created);
         }

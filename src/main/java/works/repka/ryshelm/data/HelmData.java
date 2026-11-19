@@ -145,7 +145,7 @@ public final class HelmData {
     /** История для лестницы. */
     public List<Ladder.Past> past(UUID target) {
         List<Ladder.Past> out = new ArrayList<>();
-        for (Punishment p : history(target)) out.add(new Ladder.Past(p.kind, p.created, p.revoked > 0));
+        for (Punishment p : history(target)) out.add(new Ladder.Past(p.kind, p.created, p.revoked > 0, p.expires));
         return out;
     }
 

@@ -207,7 +207,7 @@ public final class DuoTest {
             a.putBoolean("rulesOnJoin", true);
             act("settings", a);
         }, 10);
-        step("Beta в сети", () -> online("Beta"), () -> {}, 40);
+        step("Beta в сети", () -> online("Beta"), () -> check("включивший правила оператор не ждёт их принятия", !HelmClient.rulesPending), 40);
         step("Beta приняла", () -> heard("beta-accepted"), () -> check("строка до правил не прошла в чат", !heard("до-правил")), 5);
         // жалоба
         step("жалоба пришла", () -> heard("beta-reported") && HelmClient.reports > 0, () -> {

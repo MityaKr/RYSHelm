@@ -37,8 +37,16 @@ public final class Gate {
         return Helm.settings().rulesOnJoin && !Helm.rules().isEmpty() && !Helm.rules().version().equals(info.rules);
     }
 
+    /**
+     * Ждать принятия правил: правила нужны и игрок не персонал. Модераторы и операторы правила пишут и включают сами, их не
+     * запираем (ночные проверки 19.11: оператор, включивший правила, оставался без чата). Окно правил они видят как все.
+     */
+    static boolean blocks(ServerPlayer p, HelmData.PlayerInfo info) {
+        return needs(info) && !works.repka.ryscore.perm.Roles.atLeast(p, works.repka.ryscore.perm.Roles.MODERATOR);
+    }
+
     static void login(ServerPlayer p, HelmData.PlayerInfo info) {
-        if (needs(info)) {
+        if (blocks(p, info)) {
             PENDING.add(p.getUUID());
             Sync.hello(p);
         }
@@ -49,11 +57,11 @@ public final class Gate {
         REMINDED.remove(p.getUUID());
     }
 
-    /** Включили правила или поменяли их текст: всем в сети, кто не принял эту версию, открыть окно. */
+    /** Включили правила или поменяли их текст: всем в сети, кто не принял эту версию (кроме персонала), открыть окно. */
     public static void settingsChanged(MinecraftServer server) {
         for (ServerPlayer p : server.getPlayerList().getPlayers()) {
             HelmData.PlayerInfo info = Helm.data().player(p.getUUID(), p.getGameProfile().getName());
-            boolean need = needs(info);
+            boolean need = blocks(p, info);
             if (need) PENDING.add(p.getUUID());
             else PENDING.remove(p.getUUID());
         }

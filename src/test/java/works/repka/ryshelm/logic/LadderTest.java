@@ -53,6 +53,34 @@ class LadderTest {
         assertEquals(Kind.WARN, l.next(past, NOW).next().kind());
     }
 
+    /** Grib_ok из сценария `ui`: предупреждение 3 дня назад и бан на 2 дня, выданный 9 дней назад. Истёкший бан не считается. */
+    @Test
+    void expiredBanDoesNotCount() {
+        Ladder l = Ladder.defaults();
+        List<Ladder.Past> past = List.of(
+            new Ladder.Past(Kind.WARN, NOW - 3 * Term.DAY + Term.HOUR, false),
+            new Ladder.Past(Kind.BAN, NOW - 9 * Term.DAY, false, NOW - 7 * Term.DAY));
+        Ladder.Hint h = l.next(past, NOW);
+        assertEquals(1, h.count());
+        assertEquals(new Ladder.Step(Kind.MUTE, Term.HOUR), h.next());
+        assertEquals("У Grib_ok 1 предупреждение за 3 дня. Следующий шаг по правилам сервера: заглушить на 1 ч. Дальше по лестнице: бан на 1 день.",
+            l.describe("Grib_ok", past, NOW));
+    }
+
+    /** Действующее наказание считается и вне окна: мут на 60 дней, выданный 40 дней назад. Предупреждение 40 дней назад нет. */
+    @Test
+    void activeCountsOutsideWindow() {
+        Ladder l = Ladder.defaults();
+        List<Ladder.Past> past = List.of(
+            new Ladder.Past(Kind.WARN, NOW - 40 * Term.DAY, false),
+            new Ladder.Past(Kind.MUTE, NOW - 40 * Term.DAY, false, NOW + 20 * Term.DAY),
+            new Ladder.Past(Kind.BAN, NOW - 5 * Term.DAY, false, 0));
+        Ladder.Hint h = l.next(past, NOW);
+        assertEquals(2, h.count());
+        assertEquals(0, h.warnings());
+        assertEquals(new Ladder.Step(Kind.BAN, Term.DAY), h.next());
+    }
+
     @Test
     void lastStepRepeats() {
         Ladder l = Ladder.defaults();
