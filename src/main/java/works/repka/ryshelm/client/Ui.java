@@ -169,6 +169,47 @@ final class Ui {
         f.render(g, mx, my, 0);
     }
 
+    /**
+     * Поле поиска, как в окне карты: лупа всегда слева, текст и подсказка начинаются после неё, справа место под плашку
+     * клавиши «/» (видна, пока поле пустое и без курсора).
+     */
+    static void search(GuiGraphics g, Theme t, Field f, int x, int y, int w, int h, int mx, int my) {
+        if (t.beveled()) t.input(g, x, y, w, h, f.isFocused());
+        else Draw.roundBox(g, x, y, w, h, 4f, t.c("input.bg"), f.isFocused() ? t.c("text.muted") : t.c("input.border"));
+        Icons.draw(g, Icons.Shape.MAGNIFIER, x + 5, y + (h - 8) / 2f, 8, t.c("text.muted"));
+        f.setX(x + 16);
+        f.setY(y + (h - 10) / 2);
+        f.setWidth(w - 16 - 14);
+        f.setHeight(10);
+        f.setVisible(true);
+        f.setTextColor(t.c("input.fg") & 0xFFFFFF);
+        f.render(g, mx, my, 0);
+        if (f.getValue().isEmpty() && !f.isFocused()) {
+            float kx = x + w - 12, ky = y + (h - 8) / 2f;
+            Draw.roundBox(g, kx, ky, 8, 8, 2f, t.c("filter.active.bg"), t.c("panel.border"));
+            float sw = Draw.labelWidth("/", 10, Weight.MEDIUM);
+            Draw.label(g, "/", kx + (8 - sw) / 2f, ky + 4, 10, Weight.MEDIUM, t.c("text.muted"));
+        }
+    }
+
+    /**
+     * Крестик «убрать» в правой части плашки высотой {@code h} (ник белого списка, модератор): середина крестика на
+     * середине плашки. Пока снятие ждёт ответа, крестик не нажимается, через 150 мс на его месте крутилка.
+     */
+    static void chipCross(GuiGraphics g, Theme t, Kit.Hits hits, int x, int y, int h, boolean busy, boolean spinning, int mx, int my, Runnable action) {
+        float cy = y + h / 2f;
+        if (busy) {
+            if (spinning) Kit.spinner(g, x + 3, cy, 2.5f, t.c("text.muted"));
+            hits.add(x - 2, y, 10, h, b -> {});
+            return;
+        }
+        boolean hot = Kit.over(mx, my, x - 2, y, 10, h);
+        Icons.draw(g, Icons.Shape.CROSS, x - 0.5f, cy - 3.5f, 7, hot ? t.c("state.bad") : t.c("text.muted"));
+        hits.add(x - 2, y, 10, h, b -> {
+            if (b == 0) action.run();
+        });
+    }
+
     /** Врезка «важно» (макет 09, подсказка лестницы): значок и текст с переносом. Возвращает высоту. */
     static int callout(GuiGraphics g, Theme t, String text, int x, int y, int w, boolean warn) {
         var lines = Draw.wrapLabel(text, w - 24, 12, Weight.REGULAR, 6);

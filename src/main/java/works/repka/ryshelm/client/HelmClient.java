@@ -9,6 +9,8 @@ import works.repka.ryscore.action.Actions;
 import works.repka.ryscore.perm.Roles;
 import works.repka.ryscore.ui.Icons;
 import works.repka.ryscore.ui.Notice;
+import works.repka.ryscore.ui.Pending;
+import org.jetbrains.annotations.Nullable;
 import works.repka.ryshelm.network.HelmNet;
 
 /**
@@ -30,6 +32,12 @@ public final class HelmClient {
     public static boolean pinned;
     /** Последние уведомления с сервера (id): для автотестов и двух клиентов. */
     public static final java.util.List<String> RECENT = new java.util.ArrayList<>();
+    /** Правки окна, которые ждут ответа сервера (ядро 1.15.3): оптимистичное значение, крутилка, откат. */
+    public static final Pending PENDING = new Pending();
+    /** Сервер отвечает на действия с номером запроса (RYSHelm 0.2.4 и новее); старый сервер не отвечает, ждать нечего. */
+    public static boolean acks;
+    private record Waiting(java.util.function.Consumer<String> done, long since) {}
+    private static final java.util.Map<Integer, Waiting> DONE = new java.util.HashMap<>();
 
     private HelmClient() {}
 
@@ -51,6 +59,9 @@ public final class HelmClient {
         reports = 0;
         KITS.clear();
         rulesShown = false;
+        acks = false;
+        PENDING.clear();
+        DONE.clear();
         Roles.setClient(null);
         Roles.setModerationActive(false);
     }
@@ -64,6 +75,7 @@ public final class HelmClient {
             case "hello" -> hello(t);
             case "notice" -> notice(t);
             case "view" -> View.accept(t);
+            case "ack" -> ack(t.getInt("rid"), t.contains("err") ? t.getString("err") : null);
             case "open" -> ServerScreen.open(null);
             default -> {}
         }
@@ -86,6 +98,7 @@ public final class HelmClient {
         reports = t.getInt("reports");
         newbie = t.getBoolean("newbie");
         ftbEssentials = t.getBoolean("ftbEssentials");
+        acks = t.getBoolean("acks");
         KITS.clear();
         for (Tag x : t.getList("kits", Tag.TAG_COMPOUND)) KITS.put(((CompoundTag) x).getString("name"), ((CompoundTag) x).getLong("left"));
         boolean pending = t.getBoolean("rulesPending");
@@ -132,6 +145,42 @@ public final class HelmClient {
 
     public static void action(String action, CompoundTag args) {
         HelmNet.action(action, args);
+    }
+
+    /**
+     * Действие окна, которое ждёт ответа: место {@code key} сразу показывает {@code optimistic} (или крутилку), ответ
+     * сервера снимает ожидание, ошибка (её текст сервер присылает уведомлением) или молчание откатывают к данным
+     * сервера. {@code done} получает текст ошибки или {@code null}. Старый сервер без ответов: просто отправить.
+     */
+    public static void ask(String key, @Nullable Object optimistic, String action, CompoundTag args, @Nullable java.util.function.Consumer<String> done) {
+        if (acks) {
+            int rid = PENDING.start(key, optimistic);
+            args.putInt("rid", rid);
+            if (done != null) DONE.put(rid, new Waiting(done, System.currentTimeMillis()));
+        }
+        HelmNet.action(action, args);
+    }
+
+    public static void ask(String key, @Nullable Object optimistic, String action, CompoundTag args) {
+        ask(key, optimistic, action, args, null);
+    }
+
+    static void ack(int rid, @Nullable String err) {
+        PENDING.done(rid);
+        Waiting w = DONE.remove(rid);
+        if (w != null) w.done.accept(err);
+    }
+
+    /** Раз в кадр открытого окна: правки без ответа дольше 6 с откатываются с сообщением. */
+    static void expire() {
+        long now = System.currentTimeMillis();
+        if (!DONE.isEmpty()) DONE.entrySet().removeIf(e -> {
+            if (now - e.getValue().since < Pending.TIMEOUT) return false;
+            e.getValue().done.accept("Сервер не ответил");
+            return true;
+        });
+        if (!PENDING.any() || PENDING.expire(now).isEmpty()) return;
+        Notice.row(Notice.HELM, "error").icon(Icons.Shape.WARN).title("Сервер не ответил: правка не сохранена").bad().show();
     }
 
     public static void onTarget(String action, java.util.UUID target) {

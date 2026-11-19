@@ -189,6 +189,7 @@ public final class ServerScreen extends ScaledScreen {
         my = mouseY;
         hits.clear();
         tooltip = null;
+        HelmClient.expire();
         for (Field f : fields) f.setVisible(false);
         renderBackground(g, mouseX, mouseY, partialTick);
         px = (width - W) / 2;
@@ -232,23 +233,23 @@ public final class ServerScreen extends ScaledScreen {
         Draw.round(g, px + 8.5f, py + 7.5f, 14, 14, 3.5f, Draw.mix(t.c("state.ok"), 0xFF000000, 0.25f));
         Icons.draw(g, Icons.Shape.SERVER, px + 11.5f, py + 10.5f, 8, 0xFFFFFFFF);
         String name = HelmClient.server.isEmpty() ? "Сервер" : HelmClient.server;
-        Draw.label(g, Draw.ellipsize(name, 40, 15, Weight.DISPLAY), px + 27, py + 14.5f, 15, Weight.DISPLAY, t.c("text.primary"));
         List<Kit.Tab> tabs = new ArrayList<>();
         for (Tab x : Tab.values()) {
             if (!tabVisible(x)) continue;
             int count = x == Tab.REPORTS ? HelmClient.reports : -1;
             tabs.add(new Kit.Tab(x.label, count > 0 ? count : -1, tab == x, () -> switchTab(x)));
         }
-        int tabsX = px + 58;
-        Kit.tabs(g, t, hits, tabsX, py, HEAD, px + 420 - tabsX, tabs, mx, my);
+        // вкладки встают сразу за именем сервера, как в окне карты; имя берёт столько, сколько оставляют вкладки
+        int nameX = px + 27, tabsEnd = px + 420;
+        float nameRoom = Math.max(30, Math.min(130, tabsEnd - nameX - 9 - tabsWidth(tabs)));
+        String shown = Draw.ellipsize(name, nameRoom, 15, Weight.DISPLAY);
+        float nameW = Draw.labelWidth(shown, 15, Weight.DISPLAY);
+        Draw.label(g, shown, nameX, py + 14.5f, 15, Weight.DISPLAY, t.c("text.primary"));
+        if (!shown.equals(name) && Kit.over(mx, my, nameX, py + 7, (int) nameW + 1, 15)) tooltip = List.of(name);
+        int tabsX = (int) Math.ceil(nameX + nameW + 9);
+        Kit.tabs(g, t, hits, tabsX, py, HEAD, tabsEnd - tabsX, tabs, mx, my);
         // поиск, шестерёнка клавиш, закрыть
-        Ui.input(g, t, search, px + 425, py + 6, 125, 16, mx, my);
-        if (search.getValue().isEmpty() && !search.isFocused()) {
-            Draw.magnifier(g, px + 429, py + 11, t.c("text.muted"));
-            // подсказка клавиши «/» справа в поле
-            Draw.roundBox(g, px + 538, py + 10, 8, 8, 2f, t.c("filter.active.bg"), t.c("panel.border"));
-            Draw.label(g, "/", px + 540.5f, py + 14, 10, Weight.MEDIUM, t.c("text.muted"));
-        }
+        Ui.search(g, t, search, px + 425, py + 6, 125, 16, mx, my);
         int gx = px + 554;
         boolean hot = Kit.over(mx, my, gx, py + 6, 17, 17);
         Kit.iconButton(g, t, gx, py + 6, 17, hot);
@@ -256,6 +257,16 @@ public final class ServerScreen extends ScaledScreen {
         hits.add(gx, py + 6, 17, 17, b -> Actions.openKeys(this));
         if (hot) tooltip = List.of("Клавиши и колесо");
         Kit.close(g, t, hits, px + 575, py + 5, mx, my, this::onClose);
+    }
+
+    /** Ширина вкладок с узкими отступами (5 по бокам): столько им нужно, чтобы встать все, с числами. */
+    private static float tabsWidth(List<Kit.Tab> tabs) {
+        float w = 0;
+        for (Kit.Tab x : tabs) {
+            w += Draw.labelWidth(x.label(), 12, Weight.SEMIBOLD) + 10 + 2;
+            if (x.count() >= 0) w += 3 + Draw.labelWidth(Integer.toString(x.count()), 12, Weight.REGULAR);
+        }
+        return w;
     }
 
     void switchTab(Tab x) {
@@ -277,11 +288,8 @@ public final class ServerScreen extends ScaledScreen {
                     request();
                 });
             if (keepDd.open) Kit.dropdownList(g, t, hits, keepDd, List.of(new Kit.Option("30 дней", -1), new Kit.Option("60 дней", -1), new Kit.Option("90 дней", -1),
-                new Kit.Option("180 дней", -1), new Kit.Option("365 дней", -1)), indexOf(KEEP, View.journal.getInt("keep")), 70, mx, my, i -> {
-                    CompoundTag a = new CompoundTag();
-                    a.putInt("journalDays", KEEP[i]);
-                    HelmClient.action("settings", a);
-                });
+                new Kit.Option("180 дней", -1), new Kit.Option("365 дней", -1)), indexOf(KEEP, HelmClient.PENDING.value("s.journalDays", View.journal.getInt("keep"))), 70, mx, my,
+                i -> setInt("journalDays", KEEP[i]));
         }
         if (tab == Tab.ROLES && addModDd.open) {
             ListTag c = View.roles.getList("candidates", Tag.TAG_COMPOUND);
@@ -295,7 +303,7 @@ public final class ServerScreen extends ScaledScreen {
                 a.putUUID("target", p.getUUID("id"));
                 a.putString("name", p.getString("name"));
                 a.putBoolean("on", true);
-                HelmClient.action("moderator", a);
+                HelmClient.ask("mod.add", null, "moderator", a);
             });
         }
         if (punishKind != null && ruleDd.open) {
@@ -1113,7 +1121,7 @@ public final class ServerScreen extends ScaledScreen {
         Kit.dropdown(g, t, hits, daysDd, sx + sw - 65, top + 46, 65, days, journalDays != 7, mx, my);
         Ui.caps(g, t, "Хранение", sx, top + 71);
         Draw.label(g, "Журнал хранит", sx, top + 89, 13, Weight.MEDIUM, t.c("text.primary"));
-        int keep = j.getInt("keep");
+        int keep = HelmClient.PENDING.value("s.journalDays", j.getInt("keep"));
         String keepText = Term.plural(keep, "день", "дня", "дней");
         if (HelmClient.can("ryshelm.admin")) Kit.dropdown(g, t, hits, keepDd, sx + sw - 65, top + 82, 65, keepText, false, mx, my);
         else Ui.right(g, keepText, sx + sw, top + 89, 12.5f, Weight.REGULAR, t.c("text.secondary"));
@@ -1216,14 +1224,12 @@ public final class ServerScreen extends ScaledScreen {
             Ui.face(g, m.getUUID("id"), x + 3, y + 3, 8);
             Draw.label(g, name, x + 15, y + 7, 12.5f, Weight.MEDIUM, t.c("text.primary"));
             if (edit) {
-                int bx = x + cw - 10;
-                boolean hot = Kit.over(mx, my, bx - 2, y + 2, 10, 10);
-                Draw.cross(g, bx - 1, y + 4, hot ? t.c("state.bad") : t.c("text.muted"));
-                hits.add(bx - 2, y + 2, 10, 10, b -> {
+                String key = "mod.rm." + m.getUUID("id");
+                Ui.chipCross(g, t, hits, x + cw - 10, y, 14, HelmClient.PENDING.busy(key), HelmClient.PENDING.spinning(key), mx, my, () -> {
                     CompoundTag a = new CompoundTag();
                     a.putUUID("target", m.getUUID("id"));
                     a.putBoolean("on", false);
-                    HelmClient.action("moderator", a);
+                    HelmClient.ask(key, null, "moderator", a);
                 });
             }
             x += cw + 4;
@@ -1232,7 +1238,8 @@ public final class ServerScreen extends ScaledScreen {
             int aw = (int) Draw.labelWidth("Добавить", 12.5f, Weight.MEDIUM) + 20;
             boolean hot = Kit.over(mx, my, x, y, aw, 14);
             Draw.roundBox(g, x, y, aw, 14, 4f, hot ? Draw.mix(t.c("button.bg"), t.c("text.primary"), 0.08f) : t.c("button.bg"), t.c("button.border"));
-            Icons.draw(g, Icons.Shape.PLUS, x + 5, y + 4.5f, 5, t.c("button.fg"));
+            if (HelmClient.PENDING.spinning("mod.add")) Kit.spinner(g, x + 7.5f, y + 7, 2.5f, t.c("button.fg"));
+            else Icons.draw(g, Icons.Shape.PLUS, x + 5, y + 4.5f, 5, t.c("button.fg"));
             Draw.label(g, "Добавить", x + 13, y + 7, 12.5f, Weight.MEDIUM, t.c("button.fg"));
             hits.add(x, y, aw, 14, b -> addModDd.open = !addModDd.open);
             // список кандидатов встаёт под кнопкой
@@ -1297,7 +1304,8 @@ public final class ServerScreen extends ScaledScreen {
             // потолок модератора у заглушения и бана на срок
             if (id.equals("ryshelm.mute") || id.equals("ryshelm.ban.temp")) {
                 boolean mute = id.equals("ryshelm.mute");
-                long cap = r.getLong(mute ? "muteMax" : "banMax");
+                String capKey = mute ? "caps.mute" : "caps.ban";
+                long cap = HelmClient.PENDING.value(capKey, r.getLong(mute ? "muteMax" : "banMax"));
                 String text = "до " + Term.label(cap);
                 float tw = Draw.labelWidth(text, 10, Weight.REGULAR);
                 int tx = c2 + 7;
@@ -1310,8 +1318,9 @@ public final class ServerScreen extends ScaledScreen {
                         int i = 0;
                         while (i < presets.length && presets[i] != cap) i++;
                         CompoundTag a = new CompoundTag();
-                        a.putLong(mute ? "mute" : "ban", presets[(i + 1) % presets.length]);
-                        HelmClient.action("caps", a);
+                        long nextCap = presets[(i + 1) % presets.length];
+                        a.putLong(mute ? "mute" : "ban", nextCap);
+                        HelmClient.ask(capKey, nextCap, "caps", a);
                     });
                     if (hot) tooltip = List.of("Потолок модератора: клик меняет");
                 }
@@ -1329,13 +1338,14 @@ public final class ServerScreen extends ScaledScreen {
     }
 
     private void cell(GuiGraphics g, CompoundTag n, String role, int cx, int ry, boolean edit) {
-        boolean on = n.getBoolean(role);
+        String key = "perm." + n.getString("id") + "." + role;
+        boolean on = HelmClient.PENDING.value(key, n.getBoolean(role));
         Kit.checkbox(g, t, hits, cx - 4, ry + 5, on, mx, my, edit ? () -> {
             CompoundTag a = new CompoundTag();
             a.putString("node", n.getString("id"));
             a.putString("role", role);
             a.putBoolean("value", !on);
-            HelmClient.action("perm", a);
+            HelmClient.ask(key, !on, "perm", a);
         } : null);
     }
 
@@ -1366,16 +1376,15 @@ public final class ServerScreen extends ScaledScreen {
 
     // ---- настройки ----
 
-    private boolean settingsLoaded;
+    /**
+     * Поля текста: последнее присланное сервером значение и то, что игрок отправил «Сохранить». Новое значение сервера
+     * ложится в поле, только если игрок его не правит (в поле прежнее значение или только что сохранённое), иначе
+     * набранное не пропадает.
+     */
+    private final java.util.Map<String, String> loaded = new java.util.HashMap<>(), saved = new java.util.HashMap<>();
 
     private void settings(GuiGraphics g) {
         CompoundTag s = View.settings;
-        if (!settingsLoaded && s.contains("ladder")) {
-            settingsLoaded = true;
-            welcome.setValue(s.getString("welcome"));
-            serverName.setValue(s.getString("serverName"));
-            ladder.setValue(s.getString("ladder"));
-        }
         int x = px + 18, w = 360, top = py + HEAD + 4, bottom = py + H - 6;
         int scroll = Math.round(settingsScroll.update(Math.max(0, settingsHeight - (bottom - top))));
         hits.clip(top, bottom);
@@ -1384,8 +1393,8 @@ public final class ServerScreen extends ScaledScreen {
         Ui.caps(g, t, "Публичный вход", x, y + 3);
         y += 12;
         y = toggleRow(g, x, y, w, "Правила при входе", "окно при первом входе и после правки правил · " + s.getString("rulesFile") + " · " + Term.plural(s.getInt("rulesCount"), "пункт", "пункта", "пунктов"),
-            s.getBoolean("rulesOnJoin"), v -> set("rulesOnJoin", v));
-        y = stepperRow(g, x, y, w, "Новичок, часов игры", "нельзя звать к себе кроме своей команды; 0 выключено", s.getInt("newbieHours"), 0, 100, 1, v -> setInt("newbieHours", v));
+            s.getBoolean("rulesOnJoin"), "s.rulesOnJoin", v -> set("rulesOnJoin", v));
+        y = stepperRow(g, x, y, w, "Новичок, часов игры", "нельзя звать к себе кроме своей команды; 0 выключено", s.getInt("newbieHours"), 0, 100, 1, "newbieHours");
         y = fieldRow(g, x, y, w, "Приветствие", welcome, "welcome");
         y = fieldRow(g, x, y, w, "Имя сервера", serverName, "serverName");
         y = whitelist(g, s, x, y, w);
@@ -1393,21 +1402,23 @@ public final class ServerScreen extends ScaledScreen {
         Ui.caps(g, t, "Наказания и жалобы", x, y + 3);
         y += 12;
         y = fieldRow(g, x, y, w, "Лестница", ladder, "ladder");
-        y = stepperRow(g, x, y, w, "Лестница считает, дней", "наказания старше не считаются", s.getInt("ladderDays"), 1, 365, 5, v -> setInt("ladderDays", v));
-        y = stepperRow(g, x, y, w, "Пауза между жалобами, с", "одного игрока", s.getInt("reportCooldown"), 0, 3600, 30, v -> setInt("reportCooldown", v));
+        y = stepperRow(g, x, y, w, "Лестница считает, дней", "наказания старше не считаются", s.getInt("ladderDays"), 1, 365, 5, "ladderDays");
+        y = stepperRow(g, x, y, w, "Пауза между жалобами, с", "одного игрока", s.getInt("reportCooldown"), 0, 3600, 30, "reportCooldown");
         y = toggleRow(g, x, y, w, "Антиспам чата", "не больше " + s.getInt("spamMessages") + " строк за " + s.getInt("spamSeconds") + " с, повтор 3 раза; персонал не проверяется",
-            s.getBoolean("antiSpam"), v -> set("antiSpam", v));
-        if (s.getBoolean("antiSpam")) y = stepperRow(g, x, y, w, "Антиспам глушит, мин", "после трёх отказов за 2 минуты; 0 только отказывать", s.getInt("spamMuteMinutes"), 0, 120, 5, v -> setInt("spamMuteMinutes", v));
+            s.getBoolean("antiSpam"), "s.antiSpam", v -> set("antiSpam", v));
+        if (HelmClient.PENDING.value("s.antiSpam", s.getBoolean("antiSpam")))
+            y = stepperRow(g, x, y, w, "Антиспам глушит, мин", "после трёх отказов за 2 минуты; 0 только отказывать", s.getInt("spamMuteMinutes"), 0, 120, 5, "spamMuteMinutes");
         y = extraRows(g, s, x, y, w);
-        y = stepperRow(g, x, y, w, "Журнал хранит, дней", "старые месяцы уходят при запуске сервера", s.getInt("journalDays"), 7, 3650, 30, v -> setInt("journalDays", v));
+        y = stepperRow(g, x, y, w, "Журнал хранит, дней", "старые месяцы уходят при запуске сервера", s.getInt("journalDays"), 7, 3650, 30, "journalDays");
         settingsHeight = y + scroll - top + 4;
         g.disableScissor();
         hits.unclip();
         Draw.round(g, px + SPLIT, py + HEAD, 0.5f, H - HEAD - 1, 0.02f, t.c("panel.border"));
-        int sx = px + SPLIT + 9, sw = W - SPLIT - 18;
-        kits(g, s, sx, py + HEAD + 150, sw);
-        Ui.callout(g, t, "Настройки лежат в world/serverconfig/ryshelm-server.json. Каждая правка ложится в журнал. Потолки сроков модератора меняются во вкладке «Роли».", sx, py + HEAD + 12, sw, false);
-        Ui.callout(g, t, "Лестница: шаги через запятую, например warn, mute 1h, ban 1d, ban 7d, ban perm. Окно наказания подсказывает следующий шаг по числу наказаний игрока.", sx, py + HEAD + 70, sw, false);
+        // правая колонка: врезки и наборы друг под другом, по своей высоте, без постоянных мест
+        int sx = px + SPLIT + 9, sw = W - SPLIT - 18, sy = py + HEAD + 12;
+        sy += Ui.callout(g, t, "Настройки лежат в world/serverconfig/ryshelm-server.json. Каждая правка ложится в журнал. Потолки сроков модератора меняются во вкладке «Роли».", sx, sy, sw, false) + 8;
+        sy += Ui.callout(g, t, "Лестница: шаги через запятую, например warn, mute 1h, ban 1d, ban 7d, ban perm. Окно наказания подсказывает следующий шаг по числу наказаний игрока.", sx, sy, sw, false) + 16;
+        kits(g, s, sx, sy, sw);
     }
 
     private int settingsHeight;
@@ -1415,59 +1426,62 @@ public final class ServerScreen extends ScaledScreen {
 
     /** Ряды настроек следующих разделов (простой). */
     private int extraRows(GuiGraphics g, CompoundTag s, int x, int y, int w) {
-        y = stepperRow(g, x, y, w, "«Отошёл» через, мин", "без движения, чата и команд; 0 выключено; /rys afk сразу", s.getInt("afkMinutes"), 0, 120, 1, v -> setInt("afkMinutes", v));
-        y = stepperRow(g, x, y, w, "Выход по простою, мин", "персонал не выходит; 0 выключено", s.getInt("idleKickMinutes"), 0, 600, 15, v -> setInt("idleKickMinutes", v));
+        y = stepperRow(g, x, y, w, "«Отошёл» через, мин", "без движения, чата и команд; 0 выключено; /rys afk сразу", s.getInt("afkMinutes"), 0, 120, 1, "afkMinutes");
+        y = stepperRow(g, x, y, w, "Выход по простою, мин", "персонал не выходит; 0 выключено", s.getInt("idleKickMinutes"), 0, 600, 15, "idleKickMinutes");
         return y;
     }
 
     /** Белый список (план 9): тот же список игры, что у /whitelist. */
     private int whitelist(GuiGraphics g, CompoundTag s, int x, int y, int w) {
-        boolean on = s.getBoolean("whitelist");
-        y = toggleRow(g, x, y, w, "Белый список", on ? "заходят только игроки из списка; включивший попадает в него сам" : "выключен: зайти может любой", on, v -> {
+        boolean on = HelmClient.PENDING.value("wl.on", s.getBoolean("whitelist"));
+        y = toggleRow(g, x, y, w, "Белый список", on ? "заходят только игроки из списка; включивший попадает в него сам" : "выключен: зайти может любой", s.getBoolean("whitelist"), "wl.on", v -> {
             CompoundTag a = new CompoundTag();
             a.putBoolean("on", v);
-            HelmClient.action("whitelist", a);
+            HelmClient.ask("wl.on", v, "whitelist", a);
         });
         if (!on) return y;
         int cx = x;
         for (Tag xn : s.getList("whitelistNames", Tag.TAG_STRING)) {
             String name = xn.getAsString();
-            int cw = (int) Draw.labelWidth(name, 12, Weight.MEDIUM) + 19;
+            String key = "wl.rm." + name;
+            boolean going = HelmClient.PENDING.busy(key);
+            int cw = (int) Math.ceil(Draw.labelWidth(name, 12, Weight.MEDIUM)) + 19;
             if (cx + cw > x + w) {
                 cx = x;
-                y += 16;
+                y += 17;
             }
-            Draw.roundBox(g, cx, y, cw, 13, 4f, t.c("card.bg"), t.c("panel.border"));
-            Draw.label(g, name, cx + 5, y + 6.5f, 12, Weight.MEDIUM, t.c("text.primary"));
-            int bx = cx + cw - 10;
-            boolean hot = Kit.over(mx, my, bx - 2, y + 1, 10, 11);
-            Draw.cross(g, bx - 1, y + 4, hot ? t.c("state.bad") : t.c("text.muted"));
-            hits.add(bx - 2, y + 1, 10, 11, b -> {
+            // плашка ника: текст и крестик по одной середине; снимаемый ник тусклый, вместо крестика крутилка
+            Draw.roundBox(g, cx, y, cw, 14, 4f, t.c("card.bg"), t.c("panel.border"));
+            Draw.label(g, name, cx + 5, y + 7, 12, Weight.MEDIUM, going ? t.c("text.dim") : t.c("text.primary"));
+            Ui.chipCross(g, t, hits, cx + cw - 10, y, 14, going, HelmClient.PENDING.spinning(key), mx, my, () -> {
                 CompoundTag a = new CompoundTag();
                 a.putString("remove", name);
-                HelmClient.action("whitelist", a);
+                HelmClient.ask(key, null, "whitelist", a);
             });
             cx += cw + 4;
         }
-        y += 18;
+        y += 19;
         Ui.input(g, t, wlName, x, y, w - 72, 16, mx, my);
-        Kit.button(g, t, hits, x + w - 68, y, 68, 16, "Добавить", false, mx, my, this::addWhitelist);
+        Kit.button(g, t, hits, x + w - 68, y, 68, 16, "Добавить", false, HelmClient.PENDING.spinning("wl.add"), mx, my, this::addWhitelist);
         return y + 22;
     }
 
     private void addWhitelist() {
         String name = wlName.getValue().strip();
-        if (name.isEmpty()) return;
+        if (name.isEmpty() || HelmClient.PENDING.busy("wl.add")) return;
         CompoundTag a = new CompoundTag();
         a.putString("add", name);
-        HelmClient.action("whitelist", a);
-        wlName.setValue("");
+        // поле чистится только после ответа «добавлен»: при ошибке ник остаётся, его можно поправить
+        HelmClient.ask("wl.add", null, "whitelist", a, err -> {
+            if (err == null && wlName != null && wlName.getValue().strip().equals(name)) wlName.setValue("");
+        });
+        if (!HelmClient.acks) wlName.setValue("");
     }
 
     /** Наборы (план 9): список, стартовый набор кликом. Собирает оператор командой из своего инвентаря. */
     private void kits(GuiGraphics g, CompoundTag s, int x, int y, int w) {
         Ui.caps(g, t, "Наборы", x, y + 3);
-        String starter = s.getString("starterKit");
+        String starter = HelmClient.PENDING.value("kit.starter", s.getString("starterKit"));
         ListTag kits = s.getList("kits", Tag.TAG_COMPOUND);
         y += 10;
         if (kits.isEmpty()) {
@@ -1481,7 +1495,7 @@ public final class ServerScreen extends ScaledScreen {
             works.repka.ryscore.ui.Kit.radio(g, t, hits, x, y + 2, 7, on, mx, my, () -> {
                 CompoundTag a = new CompoundTag();
                 a.putString("name", on ? "" : name);
-                HelmClient.action("kit_starter", a);
+                HelmClient.ask("kit.starter", on ? "" : name, "kit_starter", a);
             });
             Draw.label(g, name, x + 11, y + 5.5f, 12.5f, Weight.MEDIUM, t.c("text.primary"));
             Ui.right(g, Term.plural(k.getInt("items"), "предмет", "предмета", "предметов") + " · " + k.getString("rule"), x + w, y + 5.5f, 11, Weight.REGULAR, t.c("text.muted"));
@@ -1494,48 +1508,71 @@ public final class ServerScreen extends ScaledScreen {
         void set(boolean v);
     }
 
-    interface IntSet {
-        void set(int v);
-    }
-
-    private int toggleRow(GuiGraphics g, int x, int y, int w, String title, String sub, boolean on, BoolSet set) {
+    /**
+     * Ряд с переключателем. Высота ряда 22: заголовок и строка пояснения, переключатель по середине обеих строк. Пока
+     * правка ждёт ответа, переключатель уже в новом положении, с крутилкой.
+     */
+    private int toggleRow(GuiGraphics g, int x, int y, int w, String title, String sub, boolean on, String key, BoolSet set) {
+        boolean shown = HelmClient.PENDING.value(key, on);
         Draw.label(g, title, x, y + 5, 13, Weight.MEDIUM, t.c("text.primary"));
         Draw.label(g, Draw.ellipsize(sub, w - 30, 11, Weight.REGULAR), x, y + 13.5f, 11, Weight.REGULAR, t.c("text.muted"));
-        boolean hot = Kit.over(mx, my, x + w - 18, y + 3, 18, 10);
-        Kit.toggle(g, t, x + w - 18, y + 3, on, hot);
-        hits.add(x + w - 18, y + 3, 18, 10, b -> set.set(!on));
+        boolean hot = Kit.over(mx, my, x + w - 18, y + 3, 18, 12);
+        Kit.toggle(g, t, x + w - 18, y + 4, shown, hot, HelmClient.PENDING.spinning(key));
+        hits.add(x + w - 18, y + 3, 18, 12, b -> set.set(!shown));
         return y + 22;
     }
 
-    private int stepperRow(GuiGraphics g, int x, int y, int w, String title, String sub, int value, int min, int max, int stepBy, IntSet set) {
+    /** Ряд со счётчиком: показанное значение уже учитывает нажатия без ответа, следующее нажатие считается от него. */
+    private int stepperRow(GuiGraphics g, int x, int y, int w, String title, String sub, int value, int min, int max, int stepBy, String name) {
+        String key = "s." + name;
+        int shown = HelmClient.PENDING.value(key, value);
         Draw.label(g, title, x, y + 5, 13, Weight.MEDIUM, t.c("text.primary"));
         Draw.label(g, Draw.ellipsize(sub, w - 90, 11, Weight.REGULAR), x, y + 13.5f, 11, Weight.REGULAR, t.c("text.muted"));
-        Kit.stepper(g, t, hits, x + w - 70, y, 70, Integer.toString(value), mx, my, () -> set.set(Math.max(min, value - stepBy)), () -> set.set(Math.min(max, value + stepBy)));
+        Kit.stepper(g, t, hits, x + w - 70, y, 70, Integer.toString(shown), HelmClient.PENDING.spinning(key), mx, my,
+            () -> setInt(name, Math.max(min, shown - stepBy), shown), () -> setInt(name, Math.min(max, shown + stepBy), shown));
         return y + 23;
     }
 
     private int fieldRow(GuiGraphics g, int x, int y, int w, String title, Field f, String key) {
+        syncField(f, key);
         Draw.label(g, title, x, y + 8, 13, Weight.MEDIUM, t.c("text.primary"));
         Ui.input(g, t, f, x + 110, y, w - 110 - 58, 16, mx, my);
-        Kit.button(g, t, hits, x + w - 54, y, 54, 16, "Сохранить", false, mx, my, () -> {
+        Kit.button(g, t, hits, x + w - 54, y, 54, 16, "Сохранить", false, HelmClient.PENDING.spinning("s." + key), mx, my, () -> {
+            String v = f.getValue().strip();
+            saved.put(key, v);
             CompoundTag a = new CompoundTag();
-            a.putString(key, f.getValue().strip());
-            HelmClient.action("settings", a);
-            settingsLoaded = false;
+            a.putString(key, v);
+            HelmClient.ask("s." + key, v, "settings", a);
         });
         return y + 22;
     }
 
-    private void set(String key, boolean v) {
-        CompoundTag a = new CompoundTag();
-        a.putBoolean(key, v);
-        HelmClient.action("settings", a);
+    private void syncField(Field f, String key) {
+        CompoundTag s = View.settings;
+        if (!s.contains("ladder")) return;
+        String server = s.getString(key), was = loaded.get(key);
+        if (server.equals(was)) return;
+        String now = f.getValue().strip();
+        if (was == null || now.equals(was) || now.equals(saved.get(key))) f.setValue(server);
+        loaded.put(key, server);
+        saved.remove(key);
     }
 
-    private void setInt(String key, int v) {
+    private void set(String name, boolean v) {
         CompoundTag a = new CompoundTag();
-        a.putInt(key, v);
-        HelmClient.action("settings", a);
+        a.putBoolean(name, v);
+        HelmClient.ask("s." + name, v, "settings", a);
+    }
+
+    private void setInt(String name, int v) {
+        CompoundTag a = new CompoundTag();
+        a.putInt(name, v);
+        HelmClient.ask("s." + name, v, "settings", a);
+    }
+
+    /** Счётчик у края: значение не меняется, ничего не шлём. */
+    private void setInt(String name, int v, int shown) {
+        if (v != shown) setInt(name, v);
     }
 
     // ---- ввод ----

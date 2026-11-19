@@ -347,7 +347,71 @@ public final class HelmAutoTest {
         step("журнал", () -> ServerScreen.open("journal"), 30);
         shot("12_journal");
         step("журнал пришёл", () -> check("в журнале есть записи", works.repka.ryshelm.client.View.journal.getList("entries", 10).size() >= 9), 2);
+        settings();
     }
+
+    /**
+     * Вкладка «Настройки» (отзыв автора 19.11): длинное имя сервера в шапке, лупа в поиске, плашки белого списка; правка
+     * ждёт ответа сервера и снимается им; места без ответа показывают крутилки и откатываются через 6 с.
+     */
+    private static void settings() {
+        server("настройки: имя и белый список", () -> {
+            MinecraftServer s = server();
+            Helm.settings().serverName = "RepYS Test Server";
+            Helm.saveSettings();
+            s.getPlayerList().setUsingWhiteList(true);
+            var wl = s.getPlayerList().getWhiteList();
+            wl.add(new net.minecraft.server.players.UserWhiteListEntry(player().getGameProfile()));
+            wl.add(new net.minecraft.server.players.UserWhiteListEntry(new GameProfile(VASYA, "Vasya_M")));
+            wl.add(new net.minecraft.server.players.UserWhiteListEntry(new GameProfile(LENA, "Lena_K")));
+            works.repka.ryshelm.server.Sync.helloAll(s);
+        });
+        step("настройки", () -> ServerScreen.open("settings"), 30);
+        step("имя и белый список пришли", () -> {
+            check("имя сервера в шапке", "RepYS Test Server".equals(HelmClient.server));
+            check("белый список включён", works.repka.ryshelm.client.View.settings.getBoolean("whitelist"));
+            check("сервер отвечает на действия", HelmClient.acks);
+        }, 2);
+        shot("15_settings");
+        step("антиспам кнопкой", () -> {
+            CompoundTag a = new CompoundTag();
+            a.putBoolean("antiSpam", true);
+            HelmClient.ask("s.antiSpam", true, "settings", a);
+            check("антиспам сразу показан включённым", HelmClient.PENDING.value("s.antiSpam", false));
+        }, 0);
+        await("ответ сервера на антиспам", () -> !HelmClient.PENDING.busy("s.antiSpam"));
+        step("антиспам пришёл", () -> check("антиспам включён данными сервера", works.repka.ryshelm.client.View.settings.getBoolean("antiSpam")), 2);
+        step("счётчик дважды до ответа", () -> {
+            int base = ladderBase = works.repka.ryshelm.client.View.settings.getInt("ladderDays");
+            for (int i = 1; i <= 2; i++) {
+                CompoundTag a = new CompoundTag();
+                a.putInt("ladderDays", base + 5 * i);
+                HelmClient.ask("s.ladderDays", base + 5 * i, "settings", a);
+            }
+            check("счётчик показывает второе нажатие", HelmClient.PENDING.value("s.ladderDays", base) == base + 10);
+        }, 0);
+        await("ответ на счётчик", () -> !HelmClient.PENDING.busy("s.ladderDays"));
+        step("счётчик пришёл", () -> check("лестница считает на 10 дней больше", works.repka.ryshelm.client.View.settings.getInt("ladderDays") == ladderBase + 10), 2);
+        step("ошибка откатывает", () -> {
+            CompoundTag a = new CompoundTag();
+            a.putString("ladder", "warn, ???");
+            HelmClient.ask("s.ladder", "warn, ???", "settings", a);
+        }, 0);
+        await("ответ на лестницу", () -> !HelmClient.PENDING.busy("s.ladder"));
+        step("лестница прежняя", () -> check("непонятая лестница не сохранилась", !works.repka.ryshelm.client.View.settings.getString("ladder").contains("???")), 2);
+        step("места ждут без ответа", () -> {
+            long since = System.currentTimeMillis() - 1000;
+            HelmClient.PENDING.start("s.rulesOnJoin", true, since);
+            HelmClient.PENDING.start("s.newbieHours", 3, since);
+            HelmClient.PENDING.start("s.welcome", "x", since);
+            HelmClient.PENDING.start("wl.rm.Vasya_M", null, since);
+        }, 10);
+        shot("15_settings_busy");
+        await("откат через 6 с", () -> !HelmClient.PENDING.any());
+        step("откат", () -> check("без ответа места сняты через 6 с", !HelmClient.PENDING.any()), 2);
+    }
+
+    private static int ladderBase;
 
     static List<HelmData.Report> reportsOf(String from) {
         List<HelmData.Report> out = new ArrayList<>();

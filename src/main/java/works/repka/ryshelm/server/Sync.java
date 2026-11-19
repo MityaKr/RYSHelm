@@ -70,6 +70,8 @@ public final class Sync {
         t.putBoolean("rulesPending", Gate.pending(p.getUUID()));
         t.putBoolean("newbie", Gate.newbie(p));
         t.putBoolean("ftbEssentials", Commands.ftbEssentials());
+        // 0.2.4: сервер отвечает на действия с номером запроса (ack), окно может ждать ответа
+        t.putBoolean("acks", true);
         if (HelmPerms.KIT.test(p)) {
             ListTag kits = new ListTag();
             for (Kits.Kit k : Kits.all()) {
@@ -147,6 +149,21 @@ public final class Sync {
     static void watch(ServerPlayer p, CompoundTag view) {
         WATCHING.put(p.getUUID(), view.copy());
         send(p, view);
+    }
+
+    /** Действие игрока с окна выполнено: его вкладку заново сейчас, не дожидаясь рассылки раз в секунду. */
+    static void refresh(ServerPlayer p) {
+        CompoundTag view = WATCHING.get(p.getUUID());
+        if (view != null) send(p, view);
+    }
+
+    /** Ответ на действие с номером запроса {@code rid}: {@code err == null} значит сделано. */
+    static void ack(ServerPlayer p, int rid, @org.jetbrains.annotations.Nullable String err) {
+        CompoundTag t = new CompoundTag();
+        t.putString("type", "ack");
+        t.putInt("rid", rid);
+        if (err != null) t.putString("err", err);
+        HelmNet.send(p, t);
     }
 
     static void unwatch(ServerPlayer p) {

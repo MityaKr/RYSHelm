@@ -60,8 +60,12 @@ public final class Requests {
             }
             VIEW_TICK.put(p.getUUID(), server.getTickCount());
         } else if (!action.equals("close") && !THROTTLE.allow(p.getUUID(), System.currentTimeMillis())) {
+            // окно ждёт ответа на правку: отказ лучше молчания, иначе оно откатит её только через 6 с
+            if (a.getInt("rid") > 0) Sync.ack(p, a.getInt("rid"), "Слишком часто: подождите секунду");
             return;
         }
+        int rid = a.getInt("rid");
+        String failed = null;
         try {
             String err = switch (action) {
                 case "view" -> {
@@ -147,9 +151,16 @@ public final class Requests {
                 default -> null;
             };
             if (err != null) Sync.notice(p, "error", "row", "WARN", err, "", true);
+            failed = err;
         } catch (RuntimeException e) {
             works.repka.ryshelm.RYSHelm.LOG.error("[ryshelm] действие {} от {} упало", action, p.getGameProfile().getName(), e);
-            Sync.notice(p, "error", "row", "WARN", "Не получилось: " + e.getMessage(), "", true);
+            failed = "Не получилось: " + e.getMessage();
+            Sync.notice(p, "error", "row", "WARN", failed, "", true);
+        }
+        if (rid > 0) {
+            // сначала свежие данные вкладки, потом ответ: окно снимает ожидание уже на новом значении, без мигания старым
+            Sync.refresh(p);
+            Sync.ack(p, rid, failed);
         }
     }
 
