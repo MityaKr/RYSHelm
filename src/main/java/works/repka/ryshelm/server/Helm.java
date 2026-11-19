@@ -179,6 +179,7 @@ public final class Helm {
         Staff.clear();
         Chat.clear();
         Afk.clear();
+        Requests.clear();
         server = null;
         journal = null;
     }
@@ -187,6 +188,7 @@ public final class Helm {
         if (server == null) return;
         ticks++;
         Staff.tick(server);
+        Requests.tick(server);
         if (ticks % 20 == 0) {
             Afk.tick(server);
             Sync.tick(server);
@@ -436,6 +438,7 @@ public final class Helm {
         Staff.logout(p);
         Chat.logout(p);
         Afk.logout(p);
+        Requests.logout(p);
         Gate.logout(p);
         Sync.logout(p);
         Sync.broadcastRoster();

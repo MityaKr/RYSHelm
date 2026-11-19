@@ -15,14 +15,57 @@ import works.repka.ryshelm.logic.Term;
 
 /** Действия из окна и колеса. Каждое проверяет право здесь: клиент только просит. */
 public final class Requests {
+    /** 20 действий подряд, дальше 8 в секунду (разбор логики 19.11, п. 4). */
+    private static final works.repka.ryshelm.logic.Throttle THROTTLE = new works.repka.ryshelm.logic.Throttle(20, 8);
+    /** Подписка окна не чаще раза в тик: лишняя ждёт следующего тика, последняя побеждает. */
+    private static final java.util.Map<java.util.UUID, Integer> VIEW_TICK = new java.util.HashMap<>();
+    private static final java.util.Map<java.util.UUID, CompoundTag> VIEW_NEXT = new java.util.HashMap<>();
+
     private Requests() {}
+
+    static void clear() {
+        THROTTLE.clear();
+        VIEW_TICK.clear();
+        VIEW_NEXT.clear();
+    }
+
+    static void logout(ServerPlayer p) {
+        THROTTLE.forget(p.getUUID());
+        VIEW_TICK.remove(p.getUUID());
+        VIEW_NEXT.remove(p.getUUID());
+    }
+
+    /** Каждый тик: отложенные подписки окна. */
+    static void tick(MinecraftServer server) {
+        if (VIEW_NEXT.isEmpty()) return;
+        var it = VIEW_NEXT.entrySet().iterator();
+        while (it.hasNext()) {
+            var e = it.next();
+            ServerPlayer p = server.getPlayerList().getPlayer(e.getKey());
+            it.remove();
+            if (p == null) continue;
+            VIEW_TICK.put(p.getUUID(), server.getTickCount());
+            Sync.watch(p, e.getValue());
+        }
+    }
 
     public static void handle(ServerPlayer p, String action, CompoundTag a) {
         if (!Helm.running()) return;
         MinecraftServer server = p.server;
+        if (action.equals("view")) {
+            Integer last = VIEW_TICK.get(p.getUUID());
+            if (last != null && last == server.getTickCount()) {
+                VIEW_NEXT.put(p.getUUID(), a.copy());
+                return;
+            }
+            VIEW_TICK.put(p.getUUID(), server.getTickCount());
+        } else if (!action.equals("close") && !THROTTLE.allow(p.getUUID(), System.currentTimeMillis())) {
+            return;
+        }
         try {
             String err = switch (action) {
                 case "view" -> {
+                    VIEW_NEXT.remove(p.getUUID());
                     Sync.watch(p, a);
                     yield null;
                 }
