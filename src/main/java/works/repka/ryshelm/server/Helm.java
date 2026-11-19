@@ -118,6 +118,7 @@ public final class Helm {
         save();
         Staff.clear();
         Chat.clear();
+        Afk.clear();
         server = null;
         journal = null;
     }
@@ -126,7 +127,10 @@ public final class Helm {
         if (server == null) return;
         ticks++;
         Staff.tick(server);
-        if (ticks % 20 == 0) Sync.tick(server);
+        if (ticks % 20 == 0) {
+            Afk.tick(server);
+            Sync.tick(server);
+        }
         if (dirty && ticks % 200 == 0) save();
     }
 
@@ -331,6 +335,7 @@ public final class Helm {
         dirty();
         Staff.logout(p);
         Chat.logout(p);
+        Afk.logout(p);
         Gate.logout(p);
         Sync.logout(p);
         Sync.broadcastRoster();

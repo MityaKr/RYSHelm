@@ -486,6 +486,9 @@ public final class ServerScreen extends ScaledScreen {
             if (online && r.getBoolean("rulesPending")) {
                 when = "правила не приняты";
                 dot = t.c("state.warn");
+            } else if (online && r.contains("afk")) {
+                when = "отошёл " + Words.span(r.getLong("afk"));
+                dot = t.c("state.warn");
             } else if (online) {
                 when = Words.online(r.getLong("since"));
                 dot = t.c("state.ok");
@@ -1368,6 +1371,8 @@ public final class ServerScreen extends ScaledScreen {
 
     /** Ряды настроек следующих разделов (простой). */
     private int extraRows(GuiGraphics g, CompoundTag s, int x, int y, int w) {
+        y = stepperRow(g, x, y, w, "«Отошёл» через, мин", "без движения, чата и команд; 0 выключено; /rys afk сразу", s.getInt("afkMinutes"), 0, 120, 1, v -> setInt("afkMinutes", v));
+        y = stepperRow(g, x, y, w, "Выход по простою, мин", "персонал не выходит; 0 выключено", s.getInt("idleKickMinutes"), 0, 600, 15, v -> setInt("idleKickMinutes", v));
         return y;
     }
 

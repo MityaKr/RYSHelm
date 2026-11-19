@@ -62,6 +62,7 @@ public final class RYSHelm {
         bus.addListener(EventPriority.HIGHEST, false, ServerChatEvent.class, Chat::onChat);
         bus.addListener(EventPriority.HIGHEST, false, CommandEvent.class, Chat::onCommand);
         bus.addListener((RegisterCommandsEvent e) -> Commands.register(e.getDispatcher()));
+        bus.addListener(works.repka.ryshelm.server.Afk::tabName);
 
         // правила не приняты: строить, ломать, открывать, бить, телепортироваться нельзя (план 5.7)
         bus.addListener(EventPriority.HIGH, false, BlockEvent.BreakEvent.class, e -> Gate.deny(e.getPlayer(), e));

@@ -29,6 +29,10 @@ public final class HelmSettings {
     public int spamSeconds = 8;
     /** Три отказа за 2 минуты: заглушить на столько минут; 0 только отказывать. */
     public int spamMuteMinutes = 5;
+    /** «Отошёл» через столько минут без дела; 0 выключено. */
+    public int afkMinutes = 5;
+    /** Выход по простою через столько минут без дела, персонал не выходит; 0 выключено. */
+    public int idleKickMinutes = 0;
     /** Стартовый набор при первом входе; пустой выключен. */
     public String starterKit = "";
     /** Сколько дней хранится журнал. */
@@ -56,6 +60,8 @@ public final class HelmSettings {
         spamMessages = Math.max(2, Math.min(50, spamMessages));
         spamSeconds = Math.max(2, Math.min(120, spamSeconds));
         spamMuteMinutes = Math.max(0, Math.min(1440, spamMuteMinutes));
+        afkMinutes = Math.max(0, Math.min(240, afkMinutes));
+        idleKickMinutes = Math.max(0, Math.min(1440, idleKickMinutes));
         if (welcome == null) welcome = "";
         if (starterKit == null) starterKit = "";
         if (ladder == null || ladder.isBlank()) ladder = Ladder.DEFAULT;

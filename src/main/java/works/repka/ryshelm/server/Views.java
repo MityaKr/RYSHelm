@@ -97,6 +97,7 @@ final class Views {
                 r.putLong("since", info != null ? info.lastSeen : now);
                 r.putBoolean("newbie", Gate.newbie(p));
                 r.putBoolean("rulesPending", Gate.pending(id));
+                if (Afk.afk(id)) r.putLong("afk", Afk.idle(id));
             } else if (info != null) {
                 r.putLong("seen", info.lastSeen);
             }
@@ -357,6 +358,8 @@ final class Views {
         t.putInt("ladderDays", s.ladderDays);
         t.putInt("journalDays", s.journalDays);
         t.putInt("reportCooldown", s.reportCooldown);
+        t.putInt("afkMinutes", s.afkMinutes);
+        t.putInt("idleKickMinutes", s.idleKickMinutes);
         t.putBoolean("antiSpam", s.antiSpam);
         t.putInt("spamMessages", s.spamMessages);
         t.putInt("spamSeconds", s.spamSeconds);

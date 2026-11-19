@@ -282,6 +282,14 @@ public final class Requests {
             s.journalDays = a.getInt("journalDays");
             sep(what).append("журнал хранит ").append(Term.plural(s.journalDays, "день", "дня", "дней"));
         }
+        if (a.contains("afkMinutes") && s.afkMinutes != a.getInt("afkMinutes")) {
+            s.afkMinutes = a.getInt("afkMinutes");
+            sep(what).append("«отошёл» ").append(s.afkMinutes == 0 ? "выключено" : "через " + s.afkMinutes + " мин");
+        }
+        if (a.contains("idleKickMinutes") && s.idleKickMinutes != a.getInt("idleKickMinutes")) {
+            s.idleKickMinutes = a.getInt("idleKickMinutes");
+            sep(what).append("выход по простою ").append(s.idleKickMinutes == 0 ? "выключен" : "через " + s.idleKickMinutes + " мин");
+        }
         if (a.contains("antiSpam") && s.antiSpam != a.getBoolean("antiSpam")) {
             s.antiSpam = a.getBoolean("antiSpam");
             sep(what).append("антиспам ").append(s.antiSpam ? "включён" : "выключен");

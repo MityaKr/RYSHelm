@@ -52,7 +52,10 @@ public final class Commands {
         Map<String, Supplier<LiteralArgumentBuilder<CommandSourceStack>>> sub = subcommands();
         LiteralArgumentBuilder<CommandSourceStack> admin = literal("admin");
         for (var e : sub.entrySet()) admin.then(e.getValue().get());
-        d.register(literal("rys").then(admin).then(rules()).then(sub.get("kit").get()));
+        d.register(literal("rys").then(admin).then(rules()).then(sub.get("kit").get()).then(literal("afk").executes(c -> {
+            Afk.mark(c.getSource().getPlayerOrException());
+            return ok(c.getSource(), "Отмечены «отошёл»: любое действие снимет отметку");
+        })));
         d.register(report("report"));
         d.register(literal("sc").requires(s -> Helm.can(s, HelmPerms.STAFF_CHAT))
             .then(argument("text", StringArgumentType.greedyString()).executes(c -> {

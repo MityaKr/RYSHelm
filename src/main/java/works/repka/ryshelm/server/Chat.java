@@ -80,6 +80,7 @@ public final class Chat {
             tellMuted(p, mute);
             return;
         }
+        Afk.active(p);
         if (spam(p, e.getRawText())) {
             e.setCanceled(true);
             return;
@@ -127,6 +128,7 @@ public final class Chat {
         if (p == null) return;
         String root = root(parse.getReader().getString());
         if (root.isEmpty()) return;
+        if (!root.equals("afk") && !parse.getReader().getString().contains(" afk")) Afk.active(p);
         if (Gate.pending(p.getUUID()) && !RULES_FREE.contains(root)) {
             e.setCanceled(true);
             Gate.remind(p);
