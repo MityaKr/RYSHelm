@@ -61,7 +61,7 @@ public final class ServerScreen extends ScaledScreen {
     private String lastRequest = "";
 
     // поля ввода
-    Field search, reason, customTerm, noteBox, reportText, who, welcome, serverName, ladder;
+    Field search, reason, customTerm, noteBox, reportText, who, welcome, serverName, ladder, wlName;
     private final List<Field> fields = new ArrayList<>();
 
     // прокрутка и списки
@@ -117,6 +117,7 @@ public final class ServerScreen extends ScaledScreen {
         welcome = field(200, "Текст при входе", welcome);
         serverName = field(24, "Имя в шапке окна", serverName);
         ladder = field(120, "warn, mute 1h, ban 1d", ladder);
+        wlName = field(16, "Ник игрока", wlName);
         if (!tabVisible(tab)) tab = Tab.PLAYERS;
         lastRequest = "";
         request();
@@ -1128,7 +1129,15 @@ public final class ServerScreen extends ScaledScreen {
                 out.add(new String[] {" выдал набор " + d + " ", ""});
                 out.add(new String[] {p, "b"});
             }
-            case "settings", "perm", "caps", "whitelist", "afk_kick" -> {
+            case "whitelist" -> {
+                out.add(new String[] {a, "b"});
+                if (p.isEmpty()) out.add(new String[] {" " + d + " белый список", ""});
+                else {
+                    out.add(new String[] {" " + d + (d.equals("убрал") ? " из белого списка " : " в белый список "), ""});
+                    out.add(new String[] {p, "b"});
+                }
+            }
+            case "settings", "perm", "caps", "afk_kick" -> {
                 out.add(new String[] {a, "b"});
                 out.add(new String[] {" " + Words.verb(type) + " " + d, ""});
             }
@@ -1320,7 +1329,11 @@ public final class ServerScreen extends ScaledScreen {
             serverName.setValue(s.getString("serverName"));
             ladder.setValue(s.getString("ladder"));
         }
-        int x = px + 18, w = 360, y = py + HEAD + 12;
+        int x = px + 18, w = 360, top = py + HEAD + 4, bottom = py + H - 6;
+        int scroll = Math.round(settingsScroll.update(Math.max(0, settingsHeight - (bottom - top))));
+        hits.clip(top, bottom);
+        Draw.scissor(g, px + 1, top, px + SPLIT - 1, bottom);
+        int y = top + 8 - scroll;
         Ui.caps(g, t, "Публичный вход", x, y + 3);
         y += 12;
         y = toggleRow(g, x, y, w, "Правила при входе", "окно при первом входе и после правки правил · " + s.getString("rulesFile") + " · " + Term.plural(s.getInt("rulesCount"), "пункт", "пункта", "пунктов"),
@@ -1328,6 +1341,7 @@ public final class ServerScreen extends ScaledScreen {
         y = stepperRow(g, x, y, w, "Новичок, часов игры", "нельзя звать к себе кроме своей команды; 0 выключено", s.getInt("newbieHours"), 0, 100, 1, v -> setInt("newbieHours", v));
         y = fieldRow(g, x, y, w, "Приветствие", welcome, "welcome");
         y = fieldRow(g, x, y, w, "Имя сервера", serverName, "serverName");
+        y = whitelist(g, s, x, y, w);
         y += 6;
         Ui.caps(g, t, "Наказания и жалобы", x, y + 3);
         y += 12;
@@ -1337,12 +1351,68 @@ public final class ServerScreen extends ScaledScreen {
         y = toggleRow(g, x, y, w, "Антиспам чата", "не больше " + s.getInt("spamMessages") + " строк за " + s.getInt("spamSeconds") + " с, повтор 3 раза; персонал не проверяется",
             s.getBoolean("antiSpam"), v -> set("antiSpam", v));
         if (s.getBoolean("antiSpam")) y = stepperRow(g, x, y, w, "Антиспам глушит, мин", "после трёх отказов за 2 минуты; 0 только отказывать", s.getInt("spamMuteMinutes"), 0, 120, 5, v -> setInt("spamMuteMinutes", v));
+        y = extraRows(g, s, x, y, w);
         y = stepperRow(g, x, y, w, "Журнал хранит, дней", "старые месяцы уходят при запуске сервера", s.getInt("journalDays"), 7, 3650, 30, v -> setInt("journalDays", v));
+        settingsHeight = y + scroll - top + 4;
+        g.disableScissor();
+        hits.unclip();
         Draw.round(g, px + SPLIT, py + HEAD, 0.5f, H - HEAD - 1, 0.02f, t.c("panel.border"));
         int sx = px + SPLIT + 9, sw = W - SPLIT - 18;
         kits(g, s, sx, py + HEAD + 150, sw);
         Ui.callout(g, t, "Настройки лежат в world/serverconfig/ryshelm-server.json. Каждая правка ложится в журнал. Потолки сроков модератора меняются во вкладке «Роли».", sx, py + HEAD + 12, sw, false);
         Ui.callout(g, t, "Лестница: шаги через запятую, например warn, mute 1h, ban 1d, ban 7d, ban perm. Окно наказания подсказывает следующий шаг по числу наказаний игрока.", sx, py + HEAD + 70, sw, false);
+    }
+
+    private int settingsHeight;
+    final Scroller settingsScroll = new Scroller();
+
+    /** Ряды настроек следующих разделов (простой). */
+    private int extraRows(GuiGraphics g, CompoundTag s, int x, int y, int w) {
+        return y;
+    }
+
+    /** Белый список (план 9): тот же список игры, что у /whitelist. */
+    private int whitelist(GuiGraphics g, CompoundTag s, int x, int y, int w) {
+        boolean on = s.getBoolean("whitelist");
+        y = toggleRow(g, x, y, w, "Белый список", on ? "заходят только игроки из списка; включивший попадает в него сам" : "выключен: зайти может любой", on, v -> {
+            CompoundTag a = new CompoundTag();
+            a.putBoolean("on", v);
+            HelmClient.action("whitelist", a);
+        });
+        if (!on) return y;
+        int cx = x;
+        for (Tag xn : s.getList("whitelistNames", Tag.TAG_STRING)) {
+            String name = xn.getAsString();
+            int cw = (int) Draw.labelWidth(name, 12, Weight.MEDIUM) + 19;
+            if (cx + cw > x + w) {
+                cx = x;
+                y += 16;
+            }
+            Draw.roundBox(g, cx, y, cw, 13, 4f, t.c("card.bg"), t.c("panel.border"));
+            Draw.label(g, name, cx + 5, y + 6.5f, 12, Weight.MEDIUM, t.c("text.primary"));
+            int bx = cx + cw - 10;
+            boolean hot = Kit.over(mx, my, bx - 2, y + 1, 10, 11);
+            Draw.cross(g, bx - 1, y + 4, hot ? t.c("state.bad") : t.c("text.muted"));
+            hits.add(bx - 2, y + 1, 10, 11, b -> {
+                CompoundTag a = new CompoundTag();
+                a.putString("remove", name);
+                HelmClient.action("whitelist", a);
+            });
+            cx += cw + 4;
+        }
+        y += 18;
+        Ui.input(g, t, wlName, x, y, w - 72, 16, mx, my);
+        Kit.button(g, t, hits, x + w - 68, y, 68, 16, "Добавить", false, mx, my, this::addWhitelist);
+        return y + 22;
+    }
+
+    private void addWhitelist() {
+        String name = wlName.getValue().strip();
+        if (name.isEmpty()) return;
+        CompoundTag a = new CompoundTag();
+        a.putString("add", name);
+        HelmClient.action("whitelist", a);
+        wlName.setValue("");
     }
 
     /** Наборы (план 9): список, стартовый набор кликом. Собирает оператор командой из своего инвентаря. */
@@ -1451,6 +1521,9 @@ public final class ServerScreen extends ScaledScreen {
             case RULES -> rulesScroll.by(by);
             case JOURNAL -> journalScroll.by(by);
             case ROLES -> rolesScroll.by(by);
+            case SETTINGS -> {
+                if (x < px + SPLIT) settingsScroll.by(by);
+            }
             case REPORTS -> reports.scroll(x, by);
             default -> {}
         }
@@ -1472,6 +1545,7 @@ public final class ServerScreen extends ScaledScreen {
                     if (f == noteBox && selected != null) saveNote(selected);
                     if (f == who) request();
                     if (f == reportText) reports.send();
+                    if (f == wlName) addWhitelist();
                     return true;
                 }
                 f.keyPressed(key, scan, mods);

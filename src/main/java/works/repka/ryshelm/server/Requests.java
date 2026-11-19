@@ -84,6 +84,14 @@ public final class Requests {
                     Sync.staffChanged();
                     return null;
                 });
+                case "whitelist" -> need(p, HelmPerms.ADMIN, () -> {
+                    String bad = null;
+                    if (a.contains("on")) Whitelist.set(p, a.getBoolean("on"));
+                    if (a.contains("add")) bad = Whitelist.add(p, a.getString("add"));
+                    if (a.contains("remove")) bad = Whitelist.remove(p, a.getString("remove"));
+                    Sync.staffChanged();
+                    return bad;
+                });
                 case "rules_accept" -> Gate.accept(p);
                 case "rules_quit" -> {
                     p.connection.disconnect(Component.literal("Правила сервера не приняты"));

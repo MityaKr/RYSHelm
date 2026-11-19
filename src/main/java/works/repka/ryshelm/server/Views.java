@@ -50,7 +50,7 @@ final class Views {
                 if (Roles.atLeast(viewer, Roles.MODERATOR)) out.put("roles", roles(viewer));
             }
             case "settings" -> {
-                if (HelmPerms.ADMIN.test(viewer)) out.put("settings", settings());
+                if (HelmPerms.ADMIN.test(viewer)) out.put("settings", settings(viewer.server));
             }
             default -> {}
         }
@@ -342,9 +342,13 @@ final class Views {
 
     // ---- настройки ----
 
-    static CompoundTag settings() {
+    static CompoundTag settings(MinecraftServer server) {
         var s = Helm.settings();
         CompoundTag t = new CompoundTag();
+        t.putBoolean("whitelist", Whitelist.on(server));
+        ListTag wl = new ListTag();
+        for (String n : Whitelist.names(server)) wl.add(net.minecraft.nbt.StringTag.valueOf(n));
+        t.put("whitelistNames", wl);
         t.putString("serverName", s.serverName);
         t.putBoolean("rulesOnJoin", s.rulesOnJoin);
         t.putInt("newbieHours", s.newbieHours);
