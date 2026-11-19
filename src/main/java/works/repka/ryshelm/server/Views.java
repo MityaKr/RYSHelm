@@ -353,6 +353,10 @@ final class Views {
         t.putInt("ladderDays", s.ladderDays);
         t.putInt("journalDays", s.journalDays);
         t.putInt("reportCooldown", s.reportCooldown);
+        t.putBoolean("antiSpam", s.antiSpam);
+        t.putInt("spamMessages", s.spamMessages);
+        t.putInt("spamSeconds", s.spamSeconds);
+        t.putInt("spamMuteMinutes", s.spamMuteMinutes);
         t.putString("rulesFile", "config/ryshelm/rules.md");
         t.putString("rulesVersion", Helm.rules().version());
         t.putString("starterKit", s.starterKit);

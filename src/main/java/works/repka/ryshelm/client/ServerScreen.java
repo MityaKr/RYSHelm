@@ -1334,6 +1334,9 @@ public final class ServerScreen extends ScaledScreen {
         y = fieldRow(g, x, y, w, "Лестница", ladder, "ladder");
         y = stepperRow(g, x, y, w, "Лестница считает, дней", "наказания старше не считаются", s.getInt("ladderDays"), 1, 365, 5, v -> setInt("ladderDays", v));
         y = stepperRow(g, x, y, w, "Пауза между жалобами, с", "одного игрока", s.getInt("reportCooldown"), 0, 3600, 30, v -> setInt("reportCooldown", v));
+        y = toggleRow(g, x, y, w, "Антиспам чата", "не больше " + s.getInt("spamMessages") + " строк за " + s.getInt("spamSeconds") + " с, повтор 3 раза; персонал не проверяется",
+            s.getBoolean("antiSpam"), v -> set("antiSpam", v));
+        if (s.getBoolean("antiSpam")) y = stepperRow(g, x, y, w, "Антиспам глушит, мин", "после трёх отказов за 2 минуты; 0 только отказывать", s.getInt("spamMuteMinutes"), 0, 120, 5, v -> setInt("spamMuteMinutes", v));
         y = stepperRow(g, x, y, w, "Журнал хранит, дней", "старые месяцы уходят при запуске сервера", s.getInt("journalDays"), 7, 3650, 30, v -> setInt("journalDays", v));
         Draw.round(g, px + SPLIT, py + HEAD, 0.5f, H - HEAD - 1, 0.02f, t.c("panel.border"));
         int sx = px + SPLIT + 9, sw = W - SPLIT - 18;

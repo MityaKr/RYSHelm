@@ -23,6 +23,12 @@ public final class HelmSettings {
     public int ladderDays = Ladder.DEFAULT_WINDOW_DAYS;
     public String moderatorMuteMax = Term.code(Caps.DEFAULT_MUTE);
     public String moderatorBanMax = Term.code(Caps.DEFAULT_BAN);
+    /** Антиспам чата (план 9): по умолчанию выключен, серверам друзей не нужен. */
+    public boolean antiSpam = false;
+    public int spamMessages = 5;
+    public int spamSeconds = 8;
+    /** Три отказа за 2 минуты: заглушить на столько минут; 0 только отказывать. */
+    public int spamMuteMinutes = 5;
     /** Стартовый набор при первом входе; пустой выключен. */
     public String starterKit = "";
     /** Сколько дней хранится журнал. */
@@ -47,6 +53,9 @@ public final class HelmSettings {
         journalDays = Math.max(7, Math.min(3650, journalDays));
         reportCooldown = Math.max(0, Math.min(86400, reportCooldown));
         reportChatLines = Math.max(0, Math.min(100, reportChatLines));
+        spamMessages = Math.max(2, Math.min(50, spamMessages));
+        spamSeconds = Math.max(2, Math.min(120, spamSeconds));
+        spamMuteMinutes = Math.max(0, Math.min(1440, spamMuteMinutes));
         if (welcome == null) welcome = "";
         if (starterKit == null) starterKit = "";
         if (ladder == null || ladder.isBlank()) ladder = Ladder.DEFAULT;

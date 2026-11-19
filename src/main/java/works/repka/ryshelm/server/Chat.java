@@ -36,6 +36,7 @@ public final class Chat {
     private static final int KEEP = 100;
 
     private static final Map<UUID, Deque<HelmData.ChatLine>> LINES = new HashMap<>();
+    private static final works.repka.ryshelm.logic.SpamGuard SPAM = new works.repka.ryshelm.logic.SpamGuard();
     private static final Set<UUID> STAFF_CHAT = new HashSet<>();
 
     private Chat() {}
@@ -43,10 +44,12 @@ public final class Chat {
     static void clear() {
         LINES.clear();
         STAFF_CHAT.clear();
+        SPAM.clear();
     }
 
     static void logout(ServerPlayer p) {
         // строки остаются до перезапуска: жалоба на вышедшего игрока тоже приложит его чат
+        SPAM.forget(p.getUUID());
     }
 
     /** Последние строки игрока, старые сверху. */
@@ -77,11 +80,39 @@ public final class Chat {
             tellMuted(p, mute);
             return;
         }
+        if (spam(p, e.getRawText())) {
+            e.setCanceled(true);
+            return;
+        }
         remember(p.getUUID(), e.getRawText());
         if (STAFF_CHAT.contains(p.getUUID()) && HelmPerms.STAFF_CHAT.test(p)) {
             e.setCanceled(true);
             staff(p.server, p.getGameProfile().getName(), e.getRawText());
         }
+    }
+
+    /** Антиспам (план 9): персонал не проверяется; третий отказ за 2 минуты глушит на несколько минут. */
+    static boolean spam(ServerPlayer p, String text) {
+        var s = Helm.settings();
+        if (!s.antiSpam || works.repka.ryscore.perm.Roles.atLeast(p, works.repka.ryscore.perm.Roles.MODERATOR)) return false;
+        var v = SPAM.check(p.getUUID(), text, System.currentTimeMillis(), s.spamMessages, s.spamSeconds);
+        switch (v) {
+            case OK -> {
+                return false;
+            }
+            case TOO_FAST -> Sync.notice(p, "spam", "row", "CHAT", "Слишком часто: не больше " + s.spamMessages + " строк за " + s.spamSeconds + " с", "", true);
+            case REPEAT -> Sync.notice(p, "spam", "row", "CHAT", "Одно и то же три раза подряд не пройдёт", "", true);
+            case STRIKE -> {
+                if (s.spamMuteMinutes > 0) {
+                    Punish.give(p.server, null, p.getUUID(), p.getGameProfile().getName(), works.repka.ryshelm.logic.Kind.MUTE, s.spamMuteMinutes * Term.MINUTE, 0, "антиспам", true);
+                    var last = Helm.data().active(p.getUUID(), works.repka.ryshelm.logic.Kind.MUTE, System.currentTimeMillis());
+                    if (last != null) last.byName = "антиспам";
+                } else {
+                    Sync.notice(p, "spam", "row", "CHAT", "Чат придержан: подождите немного", "", true);
+                }
+            }
+        }
+        return true;
     }
 
     static void tellMuted(ServerPlayer p, HelmData.Punishment mute) {

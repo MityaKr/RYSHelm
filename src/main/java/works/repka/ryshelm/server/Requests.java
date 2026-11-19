@@ -274,6 +274,14 @@ public final class Requests {
             s.journalDays = a.getInt("journalDays");
             sep(what).append("журнал хранит ").append(Term.plural(s.journalDays, "день", "дня", "дней"));
         }
+        if (a.contains("antiSpam") && s.antiSpam != a.getBoolean("antiSpam")) {
+            s.antiSpam = a.getBoolean("antiSpam");
+            sep(what).append("антиспам ").append(s.antiSpam ? "включён" : "выключен");
+        }
+        if (a.contains("spamMuteMinutes") && s.spamMuteMinutes != a.getInt("spamMuteMinutes")) {
+            s.spamMuteMinutes = a.getInt("spamMuteMinutes");
+            sep(what).append("антиспам глушит ").append(s.spamMuteMinutes == 0 ? "не глушит" : "на " + s.spamMuteMinutes + " мин");
+        }
         if (a.contains("reportCooldown") && s.reportCooldown != a.getInt("reportCooldown")) {
             s.reportCooldown = a.getInt("reportCooldown");
             sep(what).append("пауза жалоб ").append(s.reportCooldown).append(" с");
