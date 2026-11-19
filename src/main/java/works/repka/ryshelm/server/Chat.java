@@ -38,18 +38,38 @@ public final class Chat {
     private static final Map<UUID, Deque<HelmData.ChatLine>> LINES = new HashMap<>();
     private static final works.repka.ryshelm.logic.SpamGuard SPAM = new works.repka.ryshelm.logic.SpamGuard();
     private static final Set<UUID> STAFF_CHAT = new HashSet<>();
+    /** Когда игрок вышел: его строки для жалобы живут час (разбор логики 19.11, п. 7). */
+    private static final Map<UUID, Long> LEFT = new HashMap<>();
+    static final long KEEP_AFTER_LEAVE = 3_600_000L;
 
     private Chat() {}
 
     static void clear() {
         LINES.clear();
         STAFF_CHAT.clear();
+        LEFT.clear();
         SPAM.clear();
     }
 
     static void logout(ServerPlayer p) {
-        // строки остаются до перезапуска: жалоба на вышедшего игрока тоже приложит его чат
+        // строки остаются час: жалоба на только что вышедшего игрока тоже приложит его чат
         SPAM.forget(p.getUUID());
+        if (LINES.containsKey(p.getUUID())) LEFT.put(p.getUUID(), System.currentTimeMillis());
+    }
+
+    static void login(ServerPlayer p) {
+        LEFT.remove(p.getUUID());
+    }
+
+    /** Раз в минуту: строки вышедших больше часа назад уходят. */
+    static void prune(long now) {
+        var it = LEFT.entrySet().iterator();
+        while (it.hasNext()) {
+            var e = it.next();
+            if (now - e.getValue() < KEEP_AFTER_LEAVE) continue;
+            LINES.remove(e.getKey());
+            it.remove();
+        }
     }
 
     /** Последние строки игрока, старые сверху. */

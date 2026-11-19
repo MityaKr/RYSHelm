@@ -203,6 +203,7 @@ public final class Helm {
         }
         if ((dirty || dirtyPlayers) && ticks % 200 == 0) save();
         if (ticks % 72000 == 0) prune();
+        if (ticks % 1200 == 0) Chat.prune(System.currentTimeMillis());
     }
 
     /** Собрать строки в главном потоке (данные не меняются под записью) и отдать их потоку записи. */
@@ -426,6 +427,7 @@ public final class Helm {
             log("join_banned", null, p.getGameProfile().getName(), p.getUUID(), p.getGameProfile().getName(),
                 Sync.date(lastBan.revoked > 0 ? lastBan.revoked : lastBan.expires), (noted ? "есть заметка" : "") + "#" + lastBan.id);
         }
+        Chat.login(p);
         Staff.login(p, info);
         if (first) Kits.firstJoin(p);
         Sync.hello(p);
