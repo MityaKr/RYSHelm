@@ -152,9 +152,9 @@ public final class AdminImport {
             if (p.fly) report.skipped("fly " + p.id, "полёт не переносим");
             if (p.god) report.skipped("god " + p.id, "бессмертие не переносим");
             if (p.recording) report.skipped("recording " + p.id, "запись не переносим");
-            if (p.kitUses) report.skipped("kit_use_times " + p.id, "наборы потом (план 9)");
+            if (p.kitUses) report.skipped("kit_use_times " + p.id, "когда брал наборы FTB: наборы RYSHelm свои");
         }
-        if (src.kits > 0) report.skipped("kits", src.kits + " наборов: наборы потом (план 9)");
+        if (src.kits > 0) report.skipped("kits", src.kits + " наборов FTB не переносятся: соберите заново, /rys admin kits create");
         report.count("players", src.players.size());
         report.count("last_seen", seen);
         report.count("muted", mutes);

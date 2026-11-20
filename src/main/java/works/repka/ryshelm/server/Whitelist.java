@@ -37,15 +37,22 @@ public final class Whitelist {
         return Optional.empty();
     }
 
-    /** Включить или выключить; включённый с «строгим» входом выгоняет тех, кого нет в списке. */
+    /**
+     * Включить или выключить. Включение кладёт в список всех, кто сейчас в сети (они уже играют на сервере, на сервере друзей
+     * никто не вылетает от одного переключателя), дальше «строгий» вход не пускает тех, кого нет в списке.
+     */
     public static void set(ServerPlayer actor, boolean on) {
         MinecraftServer s = actor.server;
         s.getPlayerList().setUsingWhiteList(on);
         s.setEnforceWhitelist(on);
         Helm.log("whitelist", actor, null, "", on ? "включён" : "выключен", "");
         if (on) {
-            // свой оператор не должен вылететь: включивший попадает в список сам
-            if (!s.getPlayerList().getWhiteList().isWhiteListed(actor.getGameProfile())) s.getPlayerList().getWhiteList().add(new UserWhiteListEntry(actor.getGameProfile()));
+            // включивший и все, кто сейчас в сети, попадают в список сами: от переключателя никто не вылетает
+            for (ServerPlayer p : s.getPlayerList().getPlayers()) {
+                if (s.getPlayerList().getWhiteList().isWhiteListed(p.getGameProfile())) continue;
+                s.getPlayerList().getWhiteList().add(new UserWhiteListEntry(p.getGameProfile()));
+                Helm.log("whitelist", actor, p.getUUID(), p.getGameProfile().getName(), "добавил", "был в сети при включении");
+            }
             s.kickUnlistedPlayers(actor.createCommandSourceStack());
         }
     }
