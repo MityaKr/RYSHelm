@@ -21,10 +21,11 @@ import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.Level;
 import org.jetbrains.annotations.Nullable;
 import works.repka.ryscore.travel.TravelApi;
-import works.repka.ryshelm.data.Journal;
 import works.repka.ryshelm.HelmPerms;
 import works.repka.ryshelm.RYSHelm;
 import works.repka.ryshelm.data.HelmData;
+import works.repka.ryshelm.data.Journal;
+import works.repka.ryshelm.logic.Said;
 import works.repka.ryshelm.logic.Term;
 
 /**
@@ -74,7 +75,7 @@ public final class Staff {
         HelmData.PlayerInfo info = Helm.data().players.get(target);
         if (info == null || info.lastPos == null) return Texts.t(mod, "msg.tplast.unknown", Helm.data().name(target));
         String err = to(mod, info.lastPos.dim, info.lastPos.x, info.lastPos.y, info.lastPos.z, true);
-        if (err == null) Helm.log("tp", mod, target, info.name, "", "где видели · @" + info.lastPos.dim + " " + info.lastPos.coords());
+        if (err == null) Helm.log("tp", mod, target, info.name, Said.NONE, Said.of("log.last_seen").then(Said.lit(" · @" + info.lastPos.dim + " " + info.lastPos.coords())));
         return err;
     }
 
@@ -142,7 +143,7 @@ public final class Staff {
                 Sync.notice(target, "freeze", "row", "SNOW", Texts.t(target, "msg.unfrozen"), "", false);
                 Sync.hello(target);
             }
-            Helm.log("unfreeze", p.getUUID(), p.getGameProfile().getName(), e.getKey(), Helm.data().name(e.getKey()), "", "модератор вышел");
+            Helm.log("unfreeze", p.getUUID(), p.getGameProfile().getName(), e.getKey(), Helm.data().name(e.getKey()), Said.NONE, Said.of("log.mod_left"));
         }
     }
 
@@ -188,14 +189,14 @@ public final class Staff {
         mod.teleportTo(level, back.x, back.y, back.z, back.yRot, back.xRot);
         mod.setGameMode(GameType.byName(back.mode, GameType.SURVIVAL));
         long took = System.currentTimeMillis() - back.since;
-        Helm.log("spectate", mod, back.target, back.targetName, "", Term.label(Math.max(Term.MINUTE, took)) + " · вернулся на место");
+        Helm.log("spectate", mod, back.target, back.targetName, Said.NONE, Said.of("log.spectated", Said.term(Math.max(Term.MINUTE, took))));
         Sync.hello(mod);
         return null;
     }
 
     /** Сервер упал, пока кто-то наблюдал: вернуть при входе. */
     static void restoreAfterCrash(MinecraftServer server) {
-        if (!Helm.data().spectating.isEmpty()) RYSHelm.LOG.info("[ryshelm] наблюдателей с прошлого запуска: {}, вернутся кнопкой или командой", Helm.data().spectating.size());
+        if (!Helm.data().spectating.isEmpty()) RYSHelm.LOG.info("[ryshelm] spectators left from the last run: {}, they return with the button or command", Helm.data().spectating.size());
     }
 
     // ---- заморозка ----
@@ -241,7 +242,7 @@ public final class Staff {
         boolean edit = HelmPerms.INVSEE_EDIT.test(mod);
         mod.openMenu(new SimpleMenuProvider((id, inv, p) -> Peek.inventory(id, inv, target, edit),
             Texts.c(mod, edit ? "msg.menu.inventory" : "msg.menu.inventory.view", target.getGameProfile().getName())));
-        Helm.log(edit ? "invsee_edit" : "invsee", mod, target.getUUID(), target.getGameProfile().getName(), "", edit ? "мог менять" : "только смотрел");
+        Helm.log(edit ? "invsee_edit" : "invsee", mod, target.getUUID(), target.getGameProfile().getName(), Said.NONE, Said.of(edit ? "log.could_edit" : "log.view_only"));
     }
 
     /** Свой сундук Края всем, чужой модератору (смотреть) и оператору (менять). */
@@ -254,7 +255,7 @@ public final class Staff {
         boolean edit = HelmPerms.INVSEE_EDIT.test(viewer);
         viewer.openMenu(new SimpleMenuProvider((id, inv, p) -> Peek.ender(id, inv, target, edit),
             Texts.c(viewer, edit ? "msg.menu.ender" : "msg.menu.ender.view", target.getGameProfile().getName())));
-        Helm.log("enderchest", viewer, target.getUUID(), target.getGameProfile().getName(), "", edit ? "мог менять" : "только смотрел");
+        Helm.log("enderchest", viewer, target.getUUID(), target.getGameProfile().getName(), Said.NONE, Said.of(edit ? "log.could_edit" : "log.view_only"));
     }
 
     /** Корзина: что положил, пропадает при закрытии. */
@@ -319,8 +320,7 @@ public final class Staff {
     }
 
     private static void log(ServerPlayer op, ServerPlayer target, String type, String detail) {
-        String self = op == target ? "себе" : "";
-        Helm.log(type, op, op == target ? null : target.getUUID(), op == target ? "" : target.getGameProfile().getName(), detail, self);
+        Helm.log(type, op, op == target ? null : target.getUUID(), op == target ? "" : target.getGameProfile().getName(), Said.lit(detail), op == target ? Said.of("log.self") : Said.NONE);
     }
 
     public static boolean flying(ServerPlayer p) {

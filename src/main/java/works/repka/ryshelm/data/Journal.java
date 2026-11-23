@@ -22,6 +22,8 @@ import java.util.UUID;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
 import org.jetbrains.annotations.Nullable;
+import works.repka.ryshelm.logic.Lang;
+import works.repka.ryshelm.logic.Said;
 
 /**
  * Журнал персонала (план 5.6): всё, что делает персонал, и важные события. Файлы по месяцам
@@ -53,6 +55,18 @@ public final class Journal {
         public String d = "";
         /** Справа серым: «п. 3 · мат в общем чате». */
         public String n = "";
+        /** С 0.2.9: {@code d} и {@code n} ключами ({@link Said}), чтобы показать на языке читателя; у старых записей нет. */
+        public @Nullable List<Said.Part> dk, nk;
+
+        /** Продолжение строки на языке {@code lang}; у старых записей русская строка с диска. */
+        public String detail(Lang lang) {
+            return dk == null ? d : Said.render(dk, lang);
+        }
+
+        /** Пометка справа на языке {@code lang} без служебного номера {@code #id} в конце. */
+        public String note(Lang lang) {
+            return (nk == null ? n : Said.render(nk, lang)).replaceAll("#\\d+$", "").strip();
+        }
 
         public Category category() {
             return Journal.category(type);
@@ -190,6 +204,14 @@ public final class Journal {
 
     public int size() {
         return recent.size();
+    }
+
+    /** Запись с текстом ключами: на диск ложится и русская строка (журнал читается как раньше), и части. */
+    public static Entry entry(String type, @Nullable UUID actor, String actorName, @Nullable UUID target, String targetName, Said detail, Said note) {
+        Entry e = entry(type, actor, actorName, target, targetName, detail.render(Lang.ru()), note.render(Lang.ru()));
+        e.dk = detail.stored();
+        e.nk = note.stored();
+        return e;
     }
 
     public static Entry entry(String type, @Nullable UUID actor, String actorName, @Nullable UUID target, String targetName, String detail, String note) {

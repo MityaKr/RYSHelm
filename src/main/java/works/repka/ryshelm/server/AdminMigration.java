@@ -8,6 +8,7 @@ import net.minecraft.server.MinecraftServer;
 import works.repka.ryscore.migrate.Migrations;
 import works.repka.ryshelm.RYSHelm;
 import works.repka.ryshelm.data.HelmData;
+import works.repka.ryshelm.logic.Lang;
 
 /**
  * Шаг переезда {@code admin} (порядок 60, сервер, план 6): муты и место «где видели» из {@code world/ftbessentials}. Идёт
@@ -52,9 +53,9 @@ public final class AdminMigration implements Migrations.Step {
 
     @Override
     public Migrations.Report run(Migrations.Context c) throws Exception {
-        Path world = Objects.requireNonNull(c.worldDir(), "нет папки мира");
+        Path world = Objects.requireNonNull(c.worldDir(), "no world folder");
         Migrations.Report report = Migrations.Report.create();
-        if (c.isLoaded("ftbessentials")) report.line("FTB Essentials ещё стоит: муты, данные после переезда, не переносятся");
+        if (c.isLoaded("ftbessentials")) report.line(Lang.en().t("ryshelm.migrate.ftb_loaded"));
         AdminImport.Data src = AdminImport.read(world);
         MinecraftServer server = c.server();
         Function<UUID, String> names = id -> {

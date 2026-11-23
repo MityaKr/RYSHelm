@@ -47,6 +47,14 @@ public final class Lang {
         return code != null && code.toLowerCase(Locale.ROOT).startsWith("ru") ? ru() : en();
     }
 
+    /**
+     * Язык системы сервера (локаль JVM): для текстов без игрока, которые остаются в файлах мира и config (правила по
+     * умолчанию, отчёт шага переезда). Русская система даёт русский, любая другая английский.
+     */
+    public static Lang server() {
+        return of(Locale.getDefault().getLanguage());
+    }
+
     private static Lang load(String code, boolean russian) {
         Map<String, String> map = new HashMap<>();
         try (InputStream in = Lang.class.getResourceAsStream("/assets/ryshelm/lang/" + code + ".json")) {
@@ -109,7 +117,7 @@ public final class Lang {
 
     // ---- слова логики ----
 
-    /** Подпись срока: «10 мин», «1 ч», «2 дня», «навсегда» (как {@link Term#label}). */
+    /** Подпись срока: «10 мин», «1 ч», «2 дня», «навсегда». */
     public String term(long millis) {
         if (millis == Term.FOREVER) return t("ryshelm.term.forever");
         if (millis >= Term.DAY && millis % Term.DAY == 0) return n("ryshelm.term.days", millis / Term.DAY);
@@ -123,12 +131,12 @@ public final class Lang {
         return t("ryshelm.term.seconds", Math.max(1, millis / Term.SECOND));
     }
 
-    /** «на 1 ч», «навсегда» (как {@link Term#onLabel}). */
+    /** «на 1 ч», «навсегда». */
     public String termOn(long millis) {
         return millis == Term.FOREVER ? t("ryshelm.term.forever") : t("ryshelm.term.on", term(millis));
     }
 
-    /** «0:41», «3 ч», «2 дня» (как {@link Term#left}). */
+    /** «0:41», «3 ч», «2 дня». */
     public String termLeft(long millis) {
         if (millis <= 0) return t("ryshelm.term.seconds", 0);
         if (millis < Term.HOUR) {
@@ -138,12 +146,12 @@ public final class Lang {
         return term(millis < Term.DAY ? (millis / Term.HOUR) * Term.HOUR : (millis / Term.DAY) * Term.DAY);
     }
 
-    /** «предупреждение», «заглушить», «выгнать», «бан» (как {@link Kind#noun}). */
+    /** «предупреждение», «заглушить», «выгнать», «бан». */
     public String kind(Kind kind) {
         return t("ryshelm.kind." + kind.id());
     }
 
-    /** «предупреждение», «заглушить на 1 ч» (как {@link Ladder.Step#label}). */
+    /** «предупреждение», «заглушить на 1 ч». */
     public String step(Ladder.Step step) {
         return switch (step.kind()) {
             case WARN, KICK -> kind(step.kind());
@@ -151,7 +159,7 @@ public final class Lang {
         };
     }
 
-    /** «один раз», «без паузы», «раз в 1 день» (как {@link KitRule#label}). */
+    /** «один раз», «без паузы», «раз в 1 день». */
     public String kitRule(int cooldownSeconds) {
         if (cooldownSeconds == KitRule.ONCE) return t("ryshelm.kit.rule.once");
         if (cooldownSeconds <= 0) return t("ryshelm.kit.rule.none");

@@ -10,6 +10,7 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.players.UserWhiteListEntry;
 import org.jetbrains.annotations.Nullable;
 import works.repka.ryshelm.data.Journal;
+import works.repka.ryshelm.logic.Said;
 
 /**
  * Белый список окном (план 9): тот же список игры {@code whitelist.json}, что у команды {@code /whitelist}, ничего своего.
@@ -52,7 +53,7 @@ public final class Whitelist {
             for (ServerPlayer p : s.getPlayerList().getPlayers()) {
                 if (s.getPlayerList().getWhiteList().isWhiteListed(p.getGameProfile())) continue;
                 s.getPlayerList().getWhiteList().add(new UserWhiteListEntry(p.getGameProfile()));
-                Helm.log("whitelist", actor, p.getUUID(), p.getGameProfile().getName(), Journal.WL_ADD, "был в сети при включении");
+                Helm.log("whitelist", actor, p.getUUID(), p.getGameProfile().getName(), Said.lit(Journal.WL_ADD), Said.of("log.wl_online"));
             }
             s.kickUnlistedPlayers(actor.createCommandSourceStack());
         }

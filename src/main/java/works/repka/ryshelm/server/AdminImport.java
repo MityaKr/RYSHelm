@@ -16,6 +16,7 @@ import works.repka.ryscore.migrate.Migrations;
 import works.repka.ryscore.migrate.Snbt;
 import works.repka.ryshelm.data.HelmData;
 import works.repka.ryshelm.logic.Kind;
+import works.repka.ryshelm.logic.Lang;
 
 /**
  * Чтение и перенос данных FTB Essentials для шага {@code admin} (план 6) без игры: файлы читает {@code migrate.Snbt} ядра,
@@ -118,6 +119,15 @@ public final class AdminImport {
      * @param names ник по UUID (кэш профилей сервера) или null
      */
     public static void apply(Data src, HelmData dst, Function<UUID, String> names, long now, Migrations.Report report) {
+        apply(src, dst, names, now, report, Lang.en());
+    }
+
+    /**
+     * То же; строки отчёта на языке {@code report}. Шаг идёт при запуске сервера без игрока, отчёт ложится в лог и файл
+     * ядра, а они с ядра 1.17.1 по-английски, поэтому шаг зовёт с английским. Подпись перенесённого заглушения (её видит
+     * персонал в истории игрока) на языке системы сервера ({@link Lang#server()}).
+     */
+    public static void apply(Data src, HelmData dst, Function<UUID, String> names, long now, Migrations.Report report, Lang lang) {
         int seen = 0, mutes = 0;
         for (Player p : src.players) {
             String name = names.apply(p.id);
@@ -129,11 +139,11 @@ public final class AdminImport {
             if (p.muted) {
                 boolean done = dst.history(p.id).stream().anyMatch(x -> x.kind == Kind.MUTE && FROM.equals(x.byName));
                 if (done) {
-                    report.skipped("mute " + p.id, "уже перенесено");
+                    report.skipped("mute " + p.id, lang.t("ryshelm.migrate.mute.done"));
                 } else if (dst.active(p.id, Kind.MUTE, now) != null) {
-                    report.skipped("mute " + p.id, "у RYSHelm своё заглушение");
+                    report.skipped("mute " + p.id, lang.t("ryshelm.migrate.mute.own"));
                 } else if (p.muteUntil > 0 && p.muteUntil <= now) {
-                    report.skipped("mute " + p.id, "срок истёк");
+                    report.skipped("mute " + p.id, lang.t("ryshelm.migrate.mute.expired"));
                 } else {
                     HelmData.Punishment m = new HelmData.Punishment();
                     m.id = dst.id();
@@ -141,20 +151,20 @@ public final class AdminImport {
                     m.target = p.id;
                     m.targetName = info.name == null || info.name.isEmpty() ? p.id.toString().substring(0, 8) : info.name;
                     m.byName = FROM;
-                    m.reason = "перенос из FTB Essentials";
+                    m.reason = Lang.server().t("ryshelm.migrate.mute.reason");
                     m.created = now;
                     m.expires = p.muteUntil;
                     dst.punishments.add(m);
                     mutes++;
                 }
             }
-            if (p.nick) report.skipped("nick " + p.id, "ники не переносим (план 2)");
-            if (p.fly) report.skipped("fly " + p.id, "полёт не переносим");
-            if (p.god) report.skipped("god " + p.id, "бессмертие не переносим");
-            if (p.recording) report.skipped("recording " + p.id, "запись не переносим");
-            if (p.kitUses) report.skipped("kit_use_times " + p.id, "когда брал наборы FTB: наборы RYSHelm свои");
+            if (p.nick) report.skipped("nick " + p.id, lang.t("ryshelm.migrate.skip.nick"));
+            if (p.fly) report.skipped("fly " + p.id, lang.t("ryshelm.migrate.skip.fly"));
+            if (p.god) report.skipped("god " + p.id, lang.t("ryshelm.migrate.skip.god"));
+            if (p.recording) report.skipped("recording " + p.id, lang.t("ryshelm.migrate.skip.recording"));
+            if (p.kitUses) report.skipped("kit_use_times " + p.id, lang.t("ryshelm.migrate.skip.kit_uses"));
         }
-        if (src.kits > 0) report.skipped("kits", src.kits + " наборов FTB не переносятся: соберите заново, /rys admin kits create");
+        if (src.kits > 0) report.skipped("kits", lang.n("ryshelm.migrate.skip.kits", src.kits));
         report.count("players", src.players.size());
         report.count("last_seen", seen);
         report.count("muted", mutes);

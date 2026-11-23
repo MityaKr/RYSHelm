@@ -15,6 +15,7 @@ import org.junit.jupiter.api.io.TempDir;
 import works.repka.ryscore.migrate.Migrations;
 import works.repka.ryshelm.data.HelmData;
 import works.repka.ryshelm.logic.Kind;
+import works.repka.ryshelm.logic.Lang;
 import works.repka.ryshelm.logic.Term;
 
 /** Шаг admin без игры: копия файлов FTB Essentials сервера RepYS (18.11) и свои заготовки с мутами. */
@@ -66,7 +67,7 @@ class AdminImportTest {
         assertEquals(1, src.kits);
         HelmData dst = new HelmData();
         Migrations.Report r = Migrations.Report.create();
-        AdminImport.apply(src, dst, id -> id.equals(timed) ? "Grib_ok" : "", NOW, r);
+        AdminImport.apply(src, dst, id -> id.equals(timed) ? "Grib_ok" : "", NOW, r, Lang.ru());
         assertEquals(2L, r.counts().get("muted"));
         HelmData.Punishment t = dst.active(timed, Kind.MUTE, NOW);
         assertNotNull(t);

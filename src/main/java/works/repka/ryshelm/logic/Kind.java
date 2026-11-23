@@ -39,14 +39,4 @@ public enum Kind {
             default -> null;
         };
     }
-
-    /** «предупреждение», «заглушить», «выгнать», «бан». */
-    public String noun() {
-        return switch (this) {
-            case WARN -> "предупреждение";
-            case MUTE -> "заглушить";
-            case KICK -> "выгнать";
-            case BAN -> "бан";
-        };
-    }
 }

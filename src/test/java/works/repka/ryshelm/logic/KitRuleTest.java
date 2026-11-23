@@ -33,9 +33,9 @@ class KitRuleTest {
         assertEquals(0, KitRule.parse("0"));
         assertEquals(86400, KitRule.parse("1d"));
         assertEquals(1800, KitRule.parse("30m"));
-        assertEquals("один раз", KitRule.label(KitRule.ONCE));
-        assertEquals("без паузы", KitRule.label(0));
-        assertEquals("раз в 1 день", KitRule.label(86400));
+        assertEquals("один раз", Lang.ru().kitRule(KitRule.ONCE));
+        assertEquals("без паузы", Lang.ru().kitRule(0));
+        assertEquals("раз в 1 день", Lang.ru().kitRule(86400));
         assertThrows(IllegalArgumentException.class, () -> KitRule.parse("скоро"));
     }
 }

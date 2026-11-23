@@ -96,20 +96,14 @@ public final class RulesText {
         return null;
     }
 
-    /** «п. 3 · Не оскорблять игроков» или пустая строка. */
-    public String ref(int number) {
-        Rule r = rule(number);
-        return r == null ? "" : "п. " + number + " «" + r.title + "»";
-    }
-
-    /** То же на языке {@code lang}: «п. 3 «…»», «rule 3 "…"». */
+    /** Ссылка на пункт на языке {@code lang}: «п. 3 «…»», «rule 3 "…"»; пустая строка, если пункта нет. */
     public String ref(Lang lang, int number) {
         Rule r = rule(number);
         return r == null ? "" : lang.t("ryshelm.ui.report.rule_ref", number, r.title);
     }
 
-    /** Правила RepYS по умолчанию (макет 13): кладутся в config при первом запуске. */
-    public static final String DEFAULT = """
+    /** Правила по умолчанию по-русски (макет 13). */
+    public static final String DEFAULT_RU = """
         # Правила сервера
         1. Не ломать и не брать чужое
            Чужая земля закрыта приватом, но и вне привата чужое не трогаем.
@@ -124,4 +118,29 @@ public final class RulesText {
         6. Споры решают модераторы
            Жалоба: клик по игроку на карте или вкладка «Игроки».
         """;
+
+    /** Default rules in English: the fallback for every server language other than Russian. */
+    public static final String DEFAULT_EN = """
+        # Server rules
+        1. Don't grief or take what isn't yours
+           Claimed land is protected, but leave other players' things alone outside claims too.
+        2. No cheats or X-ray
+           Helpers that come with the pack are fine: map, recipes, lens.
+        3. Don't insult other players
+           Swearing in public chat gets you muted.
+        4. Don't build machines that bring the server down
+           Talk big farms over with the moderators first.
+        5. Leave newcomers in peace
+           Don't call unfamiliar newcomers over to you or take their starter items.
+        6. Moderators settle disputes
+           To report someone: click the player on the map or open the Players tab.
+        """;
+
+    /**
+     * Правила по умолчанию, кладутся в config при первом запуске (файла нет): по-русски на сервере с русским языком
+     * системы, иначе по-английски. Готовый файл не меняется.
+     */
+    public static String defaults(boolean russian) {
+        return russian ? DEFAULT_RU : DEFAULT_EN;
+    }
 }

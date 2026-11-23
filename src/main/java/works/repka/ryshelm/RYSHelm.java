@@ -76,6 +76,6 @@ public final class RYSHelm {
         bus.addListener(EventPriority.HIGH, false, EntityTeleportEvent.TeleportCommand.class, e -> Gate.deny(e.getEntity(), e));
         bus.addListener(EventPriority.HIGH, false, EntityTeleportEvent.EnderPearl.class, e -> Gate.deny(e.getEntity(), e));
         bus.addListener(EventPriority.HIGH, false, EntityTeleportEvent.ChorusFruit.class, e -> Gate.deny(e.getEntity(), e));
-        LOG.info("RYSHelm загружен");
+        LOG.info("RYSHelm loaded");
     }
 }

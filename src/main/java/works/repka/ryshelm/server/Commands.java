@@ -27,6 +27,7 @@ import works.repka.ryshelm.HelmPerms;
 import works.repka.ryshelm.data.HelmData;
 import works.repka.ryshelm.data.Journal;
 import works.repka.ryshelm.logic.Kind;
+import works.repka.ryshelm.logic.Said;
 import works.repka.ryshelm.logic.Term;
 
 import static net.minecraft.commands.Commands.argument;
@@ -217,7 +218,7 @@ public final class Commands {
                 else if (Kits.get(name) == null) return fail(c.getSource(), tx(c.getSource(), "msg.kit.no_such"));
                 Helm.settings().starterKit = name.toLowerCase(java.util.Locale.ROOT);
                 Helm.saveSettings();
-                Helm.log("settings", c.getSource().getPlayer(), null, "", name.isEmpty() ? "стартовый набор выключен" : "стартовый набор «" + name + "»", "");
+                Helm.log("settings", c.getSource().getPlayer(), null, "", name.isEmpty() ? Said.of("log.starter_kit.off") : Said.of("log.starter_kit", name), Said.NONE);
                 return ok(c.getSource(), name.isEmpty() ? tx(c.getSource(), "msg.kit.starter.off") : tx(c.getSource(), "msg.kit.starter", name));
             }))));
         m.put("reload", () -> literal("reload").requires(s -> Helm.can(s, HelmPerms.ADMIN)).executes(c -> {
@@ -347,7 +348,7 @@ public final class Commands {
         var lang = Texts.lang(c.getSource());
         for (HelmData.Punishment p : list) {
             String state = p.revoked > 0 ? " · " + lang.t("ryshelm.ui.card.revoked") : p.active(now) ? " · " + lang.t("ryshelm.ui.card.active") : "";
-            c.getSource().sendSuccess(() -> Component.literal("#" + p.id + " " + Sync.dateTime(p.created) + " " + Views.history(lang, p, false) + state + " · " + p.byName
+            c.getSource().sendSuccess(() -> Component.literal("#" + p.id + " " + Sync.dateTime(p.created) + " " + Views.history(lang, p, false) + state + " · " + Texts.who(lang, p.byName)
                 + (p.reason.isEmpty() ? "" : " · " + p.reason)), false);
         }
         return list.size();
@@ -357,10 +358,12 @@ public final class Commands {
         Journal j = Helm.journal();
         if (j == null) return 0;
         var list = j.query(e -> true, count);
+        var lang = Texts.lang(s);
         for (int i = list.size() - 1; i >= 0; i--) {
             Journal.Entry e = list.get(i);
-            s.sendSuccess(() -> Component.literal(Sync.dateTime(e.t) + " " + e.an + " " + e.type + " " + e.pn + (e.d.isEmpty() ? "" : " " + e.d)
-                + (e.n.isEmpty() ? "" : " · " + e.n.replaceAll("#\\d+$", ""))).withStyle(ChatFormatting.GRAY), false);
+            String d = e.detail(lang), n = e.note(lang);
+            s.sendSuccess(() -> Component.literal(Sync.dateTime(e.t) + " " + Texts.who(lang, e.an) + " " + e.type + " " + e.pn + (d.isEmpty() ? "" : " " + d)
+                + (n.isEmpty() ? "" : " · " + n)).withStyle(ChatFormatting.GRAY), false);
         }
         return list.size();
     }

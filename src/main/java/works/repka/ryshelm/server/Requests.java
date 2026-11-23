@@ -1,5 +1,7 @@
 package works.repka.ryshelm.server;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.MinecraftServer;
@@ -10,6 +12,7 @@ import works.repka.ryscore.perm.Roles;
 import works.repka.ryshelm.HelmPerms;
 import works.repka.ryshelm.data.HelmData;
 import works.repka.ryshelm.logic.Kind;
+import works.repka.ryshelm.logic.Said;
 import works.repka.ryshelm.logic.Term;
 
 /** Действия из окна и колеса. Каждое проверяет право здесь: клиент только просит. */
@@ -126,7 +129,7 @@ public final class Requests {
                     if (!name.isEmpty() && Kits.get(name) == null) return Texts.t(p, "msg.kit.no_such");
                     Helm.settings().starterKit = name;
                     Helm.saveSettings();
-                    Helm.log("settings", p, null, "", name.isEmpty() ? "стартовый набор выключен" : "стартовый набор «" + name + "»", "");
+                    Helm.log("settings", p, null, "", name.isEmpty() ? Said.of("log.starter_kit.off") : Said.of("log.starter_kit", name), Said.NONE);
                     Sync.staffChanged();
                     return null;
                 });
@@ -152,7 +155,7 @@ public final class Requests {
             if (err != null) Sync.notice(p, "error", "row", "WARN", err, "", true);
             failed = err;
         } catch (RuntimeException e) {
-            works.repka.ryshelm.RYSHelm.LOG.error("[ryshelm] действие {} от {} упало", action, p.getGameProfile().getName(), e);
+            works.repka.ryshelm.RYSHelm.LOG.error("[ryshelm] action {} from {} failed", action, p.getGameProfile().getName(), e);
             failed = Texts.t(p, "msg.failed", e.getMessage());
             Sync.notice(p, "error", "row", "WARN", failed, "", true);
         }
@@ -277,7 +280,8 @@ public final class Requests {
         if (!Roles.PLAYER.equals(role) && !Roles.MODERATOR.equals(role)) return Texts.t(p, "msg.perm.operator");
         boolean value = a.getBoolean("value");
         Helm.setCell(node, role, value);
-        Helm.log("perm", p, null, "", node.id(), (Roles.MODERATOR.equals(role) ? "модератор" : "игрок") + ": " + (value ? "да" : "нет"));
+        Helm.log("perm", p, null, "", Said.lit(node.id()),
+            Said.of(Roles.MODERATOR.equals(role) ? "ui.role.moderator" : "ui.role.player").then(Said.lit(": ")).then(Said.of(value ? "log.yes" : "log.no")));
         Sync.helloAll(p.server);
         return null;
     }
@@ -287,29 +291,29 @@ public final class Requests {
         if (a.contains("mute")) s.moderatorMuteMax = Term.code(Math.max(Term.MINUTE, a.getLong("mute")));
         if (a.contains("ban")) s.moderatorBanMax = Term.code(Math.max(Term.MINUTE, a.getLong("ban")));
         Helm.saveSettings();
-        Helm.log("caps", p, null, "", "", "заглушить до " + Term.label(s.caps().muteMax()) + " · бан до " + Term.label(s.caps().banMax()));
+        Helm.log("caps", p, null, "", Said.NONE, Said.of("log.caps", Said.term(s.caps().muteMax()), Said.term(s.caps().banMax())));
         Sync.staffChanged();
         return null;
     }
 
     static @Nullable String settings(ServerPlayer p, CompoundTag a) {
         var s = Helm.settings();
-        StringBuilder what = new StringBuilder();
+        List<Said> what = new ArrayList<>();
         if (a.contains("rulesOnJoin") && s.rulesOnJoin != a.getBoolean("rulesOnJoin")) {
             s.rulesOnJoin = a.getBoolean("rulesOnJoin");
-            what.append("правила при входе ").append(s.rulesOnJoin ? "включены" : "выключены");
+            what.add(Said.of(s.rulesOnJoin ? "log.set.rules_on_join.on" : "log.set.rules_on_join.off"));
         }
         if (a.contains("newbieHours") && s.newbieHours != a.getInt("newbieHours")) {
             s.newbieHours = a.getInt("newbieHours");
-            sep(what).append("новичок ").append(s.newbieHours == 0 ? "выключен" : Term.plural(s.newbieHours, "час", "часа", "часов"));
+            what.add(s.newbieHours == 0 ? Said.of("log.set.newbie.off") : Said.of("log.set.newbie", Said.count("msg.hours", s.newbieHours)));
         }
         if (a.contains("welcome") && !s.welcome.equals(a.getString("welcome"))) {
             s.welcome = a.getString("welcome").strip();
-            sep(what).append("приветствие");
+            what.add(Said.of("log.set.welcome"));
         }
         if (a.contains("serverName") && !s.serverName.equals(a.getString("serverName"))) {
             s.serverName = a.getString("serverName").strip();
-            sep(what).append("имя сервера");
+            what.add(Said.of("log.set.server_name"));
         }
         if (a.contains("ladder")) {
             try {
@@ -317,50 +321,45 @@ public final class Requests {
                 String text = new works.repka.ryshelm.logic.Ladder(steps, Term.DAY).text();
                 if (!text.equals(s.ladder().text())) {
                     s.ladder = text;
-                    sep(what).append("лестница: ").append(text);
+                    what.add(Said.of("log.set.ladder", text));
                 }
             } catch (IllegalArgumentException e) {
-                return Texts.t(p, "msg.ladder_bad", Texts.lang(p).russian() ? e.getMessage() : a.getString("ladder"));
+                return Texts.t(p, "msg.ladder_bad", a.getString("ladder"));
             }
         }
         if (a.contains("ladderDays") && s.ladderDays != a.getInt("ladderDays")) {
             s.ladderDays = a.getInt("ladderDays");
-            sep(what).append("лестница считает ").append(Term.plural(s.ladderDays, "день", "дня", "дней"));
+            what.add(Said.of("log.set.ladder_days", Said.count("term.days", s.ladderDays)));
         }
         if (a.contains("journalDays") && s.journalDays != a.getInt("journalDays")) {
             s.journalDays = a.getInt("journalDays");
-            sep(what).append("журнал хранит ").append(Term.plural(s.journalDays, "день", "дня", "дней"));
+            what.add(Said.of("log.set.journal_days", Said.count("term.days", s.journalDays)));
         }
         if (a.contains("afkMinutes") && s.afkMinutes != a.getInt("afkMinutes")) {
             s.afkMinutes = a.getInt("afkMinutes");
-            sep(what).append("«отошёл» ").append(s.afkMinutes == 0 ? "выключено" : "через " + s.afkMinutes + " мин");
+            what.add(s.afkMinutes == 0 ? Said.of("log.set.afk.off") : Said.of("log.set.afk", s.afkMinutes));
         }
         if (a.contains("idleKickMinutes") && s.idleKickMinutes != a.getInt("idleKickMinutes")) {
             s.idleKickMinutes = a.getInt("idleKickMinutes");
-            sep(what).append("выход по простою ").append(s.idleKickMinutes == 0 ? "выключен" : "через " + s.idleKickMinutes + " мин");
+            what.add(s.idleKickMinutes == 0 ? Said.of("log.set.idle_kick.off") : Said.of("log.set.idle_kick", s.idleKickMinutes));
         }
         if (a.contains("antiSpam") && s.antiSpam != a.getBoolean("antiSpam")) {
             s.antiSpam = a.getBoolean("antiSpam");
-            sep(what).append("антиспам ").append(s.antiSpam ? "включён" : "выключен");
+            what.add(Said.of(s.antiSpam ? "log.set.anti_spam.on" : "log.set.anti_spam.off"));
         }
         if (a.contains("spamMuteMinutes") && s.spamMuteMinutes != a.getInt("spamMuteMinutes")) {
             s.spamMuteMinutes = a.getInt("spamMuteMinutes");
-            sep(what).append("антиспам глушит ").append(s.spamMuteMinutes == 0 ? "не глушит" : "на " + s.spamMuteMinutes + " мин");
+            what.add(s.spamMuteMinutes == 0 ? Said.of("log.set.spam_mute.off") : Said.of("log.set.spam_mute", s.spamMuteMinutes));
         }
         if (a.contains("reportCooldown") && s.reportCooldown != a.getInt("reportCooldown")) {
             s.reportCooldown = a.getInt("reportCooldown");
-            sep(what).append("пауза жалоб ").append(s.reportCooldown).append(" с");
+            what.add(Said.of("log.set.report_cooldown", s.reportCooldown));
         }
         if (what.isEmpty()) return null;
         Helm.saveSettings();
-        Helm.log("settings", p, null, "", what.toString(), "версия правил " + Helm.rules().version());
+        Helm.log("settings", p, null, "", Said.join(", ", what), Said.of("log.rules_version", Helm.rules().version()));
         Gate.settingsChanged(p.server);
         Sync.helloAll(p.server);
         return null;
-    }
-
-    private static StringBuilder sep(StringBuilder b) {
-        if (!b.isEmpty()) b.append(", ");
-        return b;
     }
 }

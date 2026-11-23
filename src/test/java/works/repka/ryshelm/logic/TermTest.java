@@ -49,24 +49,24 @@ class TermTest {
 
     @Test
     void labelsInRussian() {
-        assertEquals("10 мин", Term.label(10 * Term.MINUTE));
-        assertEquals("1 ч", Term.label(Term.HOUR));
-        assertEquals("1 ч 30 мин", Term.label(90 * Term.MINUTE));
-        assertEquals("1 день", Term.label(Term.DAY));
-        assertEquals("2 дня", Term.label(2 * Term.DAY));
-        assertEquals("7 дней", Term.label(7 * Term.DAY));
-        assertEquals("21 день", Term.label(21 * Term.DAY));
-        assertEquals("11 дней", Term.label(11 * Term.DAY));
-        assertEquals("навсегда", Term.label(Term.FOREVER));
-        assertEquals("на 1 ч", Term.onLabel(Term.HOUR));
-        assertEquals("навсегда", Term.onLabel(Term.FOREVER));
+        assertEquals("10 мин", Lang.ru().term(10 * Term.MINUTE));
+        assertEquals("1 ч", Lang.ru().term(Term.HOUR));
+        assertEquals("1 ч 30 мин", Lang.ru().term(90 * Term.MINUTE));
+        assertEquals("1 день", Lang.ru().term(Term.DAY));
+        assertEquals("2 дня", Lang.ru().term(2 * Term.DAY));
+        assertEquals("7 дней", Lang.ru().term(7 * Term.DAY));
+        assertEquals("21 день", Lang.ru().term(21 * Term.DAY));
+        assertEquals("11 дней", Lang.ru().term(11 * Term.DAY));
+        assertEquals("навсегда", Lang.ru().term(Term.FOREVER));
+        assertEquals("на 1 ч", Lang.ru().termOn(Term.HOUR));
+        assertEquals("навсегда", Lang.ru().termOn(Term.FOREVER));
     }
 
     @Test
     void leftClock() {
-        assertEquals("0:41", Term.left(41 * Term.SECOND));
-        assertEquals("12:05", Term.left(12 * Term.MINUTE + 5 * Term.SECOND));
-        assertEquals("3 ч", Term.left(3 * Term.HOUR + 20 * Term.MINUTE));
-        assertEquals("2 дня", Term.left(2 * Term.DAY + 5 * Term.HOUR));
+        assertEquals("0:41", Lang.ru().termLeft(41 * Term.SECOND));
+        assertEquals("12:05", Lang.ru().termLeft(12 * Term.MINUTE + 5 * Term.SECOND));
+        assertEquals("3 ч", Lang.ru().termLeft(3 * Term.HOUR + 20 * Term.MINUTE));
+        assertEquals("2 дня", Lang.ru().termLeft(2 * Term.DAY + 5 * Term.HOUR));
     }
 }

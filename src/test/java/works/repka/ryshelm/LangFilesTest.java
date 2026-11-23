@@ -19,7 +19,6 @@ import java.util.regex.Pattern;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 import works.repka.ryshelm.logic.Kind;
-import works.repka.ryshelm.logic.KitRule;
 import works.repka.ryshelm.logic.Ladder;
 import works.repka.ryshelm.logic.Lang;
 import works.repka.ryshelm.logic.Term;
@@ -124,7 +123,7 @@ class LangFilesTest {
     @Test
     void usedKeysExist() throws IOException {
         var ru = load("ru_ru");
-        Pattern shortKey = Pattern.compile("((?<![.\\w])(?:tr|tx|n)|Tr\\.tr|Tr\\.n|Texts\\.t|Texts\\.c|Texts\\.n)\\((?:[\\w.()]+,\\s*)?\"([a-z0-9_.]+)\"\\s*[,)]");
+        Pattern shortKey = Pattern.compile("((?<![.\\w])(?:tr|tx|n)|Tr\\.tr|Tr\\.n|Texts\\.t|Texts\\.c|Texts\\.n|Said\\.of|Said\\.count)\\((?:[\\w.()]+,\\s*)?\"([a-z0-9_.]+)\"\\s*[,)]");
         Pattern fullKey = Pattern.compile("(?:\\.t|\\.n|\\.raw|translatable|translatableWithFallback)\\(\"(ryshelm\\.[a-z0-9_.]+)\"\\s*[,)]");
         List<String> missing = new ArrayList<>();
         try (Stream<Path> files = Files.walk(MAIN)) {
@@ -145,21 +144,25 @@ class LangFilesTest {
         assertTrue(missing.isEmpty(), "ключей нет в файлах: " + missing);
     }
 
-    /** Русские сроки, наказания и паузы из файла те же, что прежние слова логики (их пишет журнал). */
+    /** Русские сроки, наказания и паузы из файла: прежние слова журнала (до 0.2.9 они были зашиты в логике). */
     @Test
-    void russianMatchesLogic() {
+    void russianWords() {
         Lang ru = Lang.ru();
-        long[] spans = {Term.SECOND, 30 * Term.SECOND, Term.MINUTE, 10 * Term.MINUTE, 59 * Term.MINUTE, Term.HOUR, 90 * Term.MINUTE, 6 * Term.HOUR,
-            Term.DAY, 2 * Term.DAY, 5 * Term.DAY, 7 * Term.DAY, 11 * Term.DAY, 21 * Term.DAY, 22 * Term.DAY, 36 * Term.HOUR, 365 * Term.DAY, Term.FOREVER};
-        for (long s : spans) {
-            assertEquals(Term.label(s), ru.term(s));
-            assertEquals(Term.onLabel(s), ru.termOn(s));
-            if (s != Term.FOREVER) assertEquals(Term.left(s), ru.termLeft(s));
-        }
-        assertEquals(Term.left(0), ru.termLeft(0));
-        for (Kind k : Kind.values()) assertEquals(k.noun(), ru.kind(k));
-        for (Ladder.Step st : Ladder.steps(Ladder.DEFAULT + ", mute 10m, kick")) assertEquals(st.label(), ru.step(st));
-        for (int cd : new int[] {KitRule.ONCE, 0, 1800, 86_400}) assertEquals(KitRule.label(cd), ru.kitRule(cd));
+        assertEquals("0 с", ru.termLeft(0));
+        assertEquals("30 с", ru.term(30 * Term.SECOND));
+        assertEquals("59 мин", ru.term(59 * Term.MINUTE));
+        assertEquals("6 ч", ru.term(6 * Term.HOUR));
+        assertEquals("22 дня", ru.term(22 * Term.DAY));
+        assertEquals("2 дня", ru.term(36 * Term.HOUR));
+        assertEquals("365 дней", ru.term(365 * Term.DAY));
+        assertEquals("на 7 дней", ru.termOn(7 * Term.DAY));
+        assertEquals("предупреждение", ru.kind(Kind.WARN));
+        assertEquals("заглушить", ru.kind(Kind.MUTE));
+        assertEquals("выгнать", ru.kind(Kind.KICK));
+        assertEquals("бан", ru.kind(Kind.BAN));
+        assertEquals(List.of("предупреждение", "заглушить на 1 ч", "бан на 1 день", "бан на 7 дней", "бан навсегда", "заглушить на 10 мин", "выгнать"),
+            Ladder.steps(Ladder.DEFAULT + ", mute 10m, kick").stream().map(ru::step).toList());
+        assertEquals("раз в 30 мин", ru.kitRule(1800));
     }
 
     @Test

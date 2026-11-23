@@ -1,5 +1,29 @@
 # RYSHelm: история версий
 
+## 0.2.9 (23.11.2026)
+
+Остатки русского текста в коде убраны: к публикации на CurseForge интерфейс полностью английский.
+
+- Правила сервера по умолчанию на двух языках. На новом сервере с русским языком системы в `config/ryshelm/rules.md` ложатся прежние русские правила, на любом другом английские. Готовый файл правил не меняется.
+- Журнал персонала на языке читателя. Новая запись хранит рядом с прежней русской строкой ключи, окно «Сервер» и `/rys admin journal` собирают её на языке оператора: сроки, «только смотрел», состояние жалобы, изменения настроек. Старые записи читаются и показываются как были. «Консоль» и «сервер» в журнале и истории наказаний тоже переводятся.
+- В списке банов игры у бана из консоли источник «Server».
+- Отчёт шага переезда `admin` (`/rys migrate`) по ключам `ryshelm.migrate.*`, в отчёт по-английски, как лог и файл переезда ядра. Подпись перенесённого заглушения на языке системы сервера.
+- Ошибка разбора лестницы в настройках показывает введённую строку на любом языке.
+- Логи сервера и тексты исключений по-английски. Неиспользуемые русские подписи логики (`Term.label`, `Kind.noun`, `Ladder.Step.label`, `KitRule.label`) убраны, слова даёт `Lang`.
+- Ядро 1.17.1 внутри jar: подписи мыши и клавиш и ответы `/rys migrate` на языке игры.
+- Тесты: английские правила по умолчанию, журнал ключами (запись, чтение, старые записи), ключи из `Said.of` есть в файлах перевода.
+
+### English
+
+The last hardcoded Russian text is gone: the whole interface is ready in English.
+
+- Default server rules come in two languages. A new server on a Russian system gets the Russian rules in `config/ryshelm/rules.md`, any other gets English ones. An existing rules file is never touched.
+- The staff journal follows the reader's language. New entries keep translation keys next to the Russian line on disk, so the Server window and `/rys admin journal` show them in the operator's language. Old entries read as before.
+- Bans from the console show "Server" as the source in the game's ban list.
+- The `admin` migration step (`/rys migrate`) reports in English, like the core's migration log and report file.
+- Server logs and exception messages are in English.
+- Bundled RYSCore 1.17.1: mouse and key labels and `/rys migrate` replies follow the game language.
+
 ## 0.2.8 (23.11.2026)
 
 Окно «Сервер» и сообщения мода на двух языках.

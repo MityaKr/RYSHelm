@@ -9,6 +9,7 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 import works.repka.ryscore.perm.Roles;
+import works.repka.ryshelm.logic.Said;
 import works.repka.ryshelm.logic.Term;
 
 /**
@@ -100,7 +101,7 @@ public final class Afk {
             long idle = now - s.active;
             if (!s.afk && settings.afkMinutes > 0 && idle >= settings.afkMinutes * Term.MINUTE) set(p, s, true);
             if (settings.idleKickMinutes > 0 && idle >= settings.idleKickMinutes * Term.MINUTE && !Roles.atLeast(p, Roles.MODERATOR)) {
-                Helm.log("afk_kick", null, "сервер", p.getUUID(), p.getGameProfile().getName(), Term.label(idle / Term.MINUTE * Term.MINUTE) + " без дела", "");
+                Helm.log("afk_kick", null, Helm.SERVER, p.getUUID(), p.getGameProfile().getName(), Said.of("log.idle", Said.term(idle / Term.MINUTE * Term.MINUTE)), Said.NONE);
                 p.connection.disconnect(Texts.c(p, "msg.idle_kick", Texts.lang(p).term(settings.idleKickMinutes * Term.MINUTE)));
             }
         }

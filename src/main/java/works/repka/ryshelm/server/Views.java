@@ -47,7 +47,7 @@ final class Views {
                 if (HelmPerms.REPORTS.test(viewer)) out.put("reports", Reports.view(viewer, view.getLong("report")));
             }
             case "journal" -> {
-                if (HelmPerms.JOURNAL.test(viewer)) out.put("journal", journal(view));
+                if (HelmPerms.JOURNAL.test(viewer)) out.put("journal", journal(view, Texts.lang(viewer)));
             }
             case "roles" -> {
                 if (Roles.atLeast(viewer, Roles.MODERATOR)) out.put("roles", roles(viewer));
@@ -247,7 +247,7 @@ final class Views {
     /** Строка истории: «Заглушить 1 ч · п. 3 · Grib_ok» на языке зрителя. */
     static String history(works.repka.ryshelm.logic.Lang lang, HelmData.Punishment x, boolean by) {
         String term = x.kind.timed() ? " " + (x.expires == 0 ? lang.t("ryshelm.term.forever") : lang.term(x.expires - x.created)) : "";
-        return cap(lang.kind(x.kind)) + term + (x.rule > 0 ? " · " + lang.t("ryshelm.msg.rule_short", x.rule) : "") + (by ? " · " + x.byName : "");
+        return cap(lang.kind(x.kind)) + term + (x.rule > 0 ? " · " + lang.t("ryshelm.msg.rule_short", x.rule) : "") + (by ? " · " + Texts.who(lang, x.byName) : "");
     }
 
     /** Окно наказания: лестница и потолки для этого модератора. */
@@ -293,7 +293,7 @@ final class Views {
 
     // ---- журнал ----
 
-    static CompoundTag journal(CompoundTag view) {
+    static CompoundTag journal(CompoundTag view, works.repka.ryshelm.logic.Lang lang) {
         Journal j = Helm.journal();
         CompoundTag t = new CompoundTag();
         if (j == null) return t;
@@ -310,10 +310,10 @@ final class Views {
             CompoundTag r = new CompoundTag();
             r.putLong("t", e.t);
             r.putString("type", e.type);
-            r.putString("a", e.an);
+            r.putString("a", Texts.who(lang, e.an));
             r.putString("p", e.pn);
-            r.putString("d", e.d);
-            r.putString("n", e.n.replaceAll("#\\d+$", "").strip());
+            r.putString("d", e.detail(lang));
+            r.putString("n", e.note(lang));
             list.add(r);
         }
         t.put("entries", list);

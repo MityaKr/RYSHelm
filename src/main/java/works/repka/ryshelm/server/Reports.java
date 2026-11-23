@@ -9,6 +9,7 @@ import org.jetbrains.annotations.Nullable;
 import works.repka.ryshelm.HelmPerms;
 import works.repka.ryshelm.data.HelmData;
 import works.repka.ryshelm.logic.Lang;
+import works.repka.ryshelm.logic.Said;
 import works.repka.ryshelm.logic.Term;
 
 /**
@@ -30,15 +31,7 @@ public final class Reports {
         return n;
     }
 
-    static String stateLabel(HelmData.Report r) {
-        return switch (r.state) {
-            case NEW -> "новая";
-            case TAKEN -> "взял " + r.takenByName;
-            case CLOSED -> "punished".equals(r.outcome) ? "наказан" : "не подтвердилось";
-        };
-    }
-
-    /** То же для окна, на языке зрителя (журнал хранит русское). */
+    /** Состояние жалобы на языке зрителя: «новая», «взял Grib_ok», «наказан», «не подтвердилось». */
     static String stateLabel(Lang lang, HelmData.Report r) {
         return switch (r.state) {
             case NEW -> lang.t("ryshelm.msg.report.state.new");
@@ -77,7 +70,8 @@ public final class Reports {
         data.reports.add(r);
         me.lastReport = now;
         Helm.dirty();
-        Helm.log("report", from.getUUID(), r.fromName, target, r.targetName, "", (r.rule > 0 ? "п. " + r.rule + " · " : "") + "новая#" + r.id);
+        Helm.log("report", from.getUUID(), r.fromName, target, r.targetName, Said.NONE,
+            Said.join(" · ", java.util.List.of(r.rule > 0 ? Said.of("msg.rule_short", r.rule) : Said.NONE, Said.of("msg.report.state.new"))).then(Said.lit("#" + r.id)));
         for (ServerPlayer p : server.getPlayerList().getPlayers()) {
             if (HelmPerms.REPORTS.test(p)) Sync.notice(p, "report_new", "card", "FLAG", Texts.t(p, "msg.report.new"),
                 r.fromName + " → " + r.targetName + (r.rule > 0 ? " · " + Texts.t(p, "msg.rule_short", r.rule) : ""), false);
@@ -96,7 +90,7 @@ public final class Reports {
         r.takenBy = mod.getUUID();
         r.takenByName = mod.getGameProfile().getName();
         Helm.dirty();
-        Helm.log("report_take", mod, r.target, r.targetName, "", "от " + r.fromName);
+        Helm.log("report_take", mod, r.target, r.targetName, Said.NONE, Said.of("log.from", r.fromName));
         Sync.staffChanged();
         for (ServerPlayer p : mod.server.getPlayerList().getPlayers()) if (HelmPerms.REPORTS.test(p)) Sync.hello(p);
         return null;
@@ -115,7 +109,8 @@ public final class Reports {
             r.takenByName = mod.getGameProfile().getName();
         }
         Helm.dirty();
-        Helm.log("report_close", mod, r.target, r.targetName, "", stateLabel(r) + " · от " + r.fromName);
+        Helm.log("report_close", mod, r.target, r.targetName, Said.NONE,
+            Said.join(" · ", java.util.List.of(Said.of("punished".equals(r.outcome) ? "msg.report.state.punished" : "msg.report.state.rejected"), Said.of("log.from", r.fromName))));
         ServerPlayer author = mod.server.getPlayerList().getPlayer(r.from);
         Helm.mail(r.from, "report|" + Texts.t(author != null ? author : mod, "msg.report.done", r.targetName, Sync.date(r.time)));
         Sync.staffChanged();

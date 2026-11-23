@@ -22,13 +22,6 @@ public final class KitRule {
         return Math.max(0, until - now);
     }
 
-    /** «один раз», «без паузы», «раз в 1 день». */
-    public static String label(int cooldownSeconds) {
-        if (cooldownSeconds == ONCE) return "один раз";
-        if (cooldownSeconds <= 0) return "без паузы";
-        return "раз в " + Term.label(cooldownSeconds * 1000L);
-    }
-
     /** Пауза из строки команды: {@code once}, {@code 0}, {@code 1d}, {@code 30m}. */
     public static int parse(String text) {
         String s = text.strip().toLowerCase(java.util.Locale.ROOT);

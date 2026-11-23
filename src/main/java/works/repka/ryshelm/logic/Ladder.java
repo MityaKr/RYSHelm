@@ -21,16 +21,6 @@ public final class Ladder {
 
     /** Шаг лестницы: вид и срок (у предупреждения и «выгнать» срок 0). */
     public record Step(Kind kind, long millis) {
-        /** «предупреждение», «заглушить на 1 ч», «бан на 1 день», «бан навсегда». */
-        public String label() {
-            return switch (kind) {
-                case WARN -> "предупреждение";
-                case KICK -> "выгнать";
-                case MUTE -> "заглушить " + Term.onLabel(millis);
-                case BAN -> "бан " + Term.onLabel(millis);
-            };
-        }
-
         public String code() {
             return kind.timed() ? kind.id() + " " + Term.code(millis) : kind.id();
         }
@@ -50,7 +40,7 @@ public final class Ladder {
     private final long window;
 
     public Ladder(List<Step> steps, long windowMillis) {
-        if (steps.isEmpty()) throw new IllegalArgumentException("пустая лестница");
+        if (steps.isEmpty()) throw new IllegalArgumentException("empty ladder");
         this.steps = List.copyOf(steps);
         this.window = windowMillis;
     }
@@ -77,15 +67,15 @@ public final class Ladder {
             if (p.isEmpty()) continue;
             String[] w = p.split("\\s+");
             Kind kind = Kind.parse(w[0]);
-            if (kind == null) throw new IllegalArgumentException("вид: " + w[0]);
+            if (kind == null) throw new IllegalArgumentException("unknown kind: " + w[0]);
             long millis = 0;
             if (kind.timed()) {
-                if (w.length < 2) throw new IllegalArgumentException("нет срока: " + p);
+                if (w.length < 2) throw new IllegalArgumentException("no term: " + p);
                 millis = Term.parse(w[1]);
             }
             out.add(new Step(kind, millis));
         }
-        if (out.isEmpty()) throw new IllegalArgumentException("пустая лестница");
+        if (out.isEmpty()) throw new IllegalArgumentException("empty ladder");
         return out;
     }
 

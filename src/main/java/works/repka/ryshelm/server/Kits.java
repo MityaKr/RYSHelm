@@ -16,6 +16,7 @@ import org.jetbrains.annotations.Nullable;
 import works.repka.ryshelm.RYSHelm;
 import works.repka.ryshelm.data.HelmData;
 import works.repka.ryshelm.logic.KitRule;
+import works.repka.ryshelm.logic.Said;
 import works.repka.ryshelm.logic.Term;
 
 /**
@@ -72,7 +73,7 @@ public final class Kits {
         if (kit.items.isEmpty()) return "";
         kits.put(key, kit);
         save(op.server);
-        Helm.log("kit_create", op, null, "", key, Term.plural(kit.items.size(), "предмет", "предмета", "предметов") + " · " + KitRule.label(cooldown));
+        Helm.log("kit_create", op, null, "", Said.lit(key), Said.of("log.text", Said.count("ui.set.kits.items", kit.items.size())).then(Said.lit(" · ")).then(Said.of("log.text", Said.kitRule(cooldown))));
         return key;
     }
 
@@ -109,7 +110,7 @@ public final class Kits {
                 given++;
             } catch (Exception e) {
                 // предмет мода, которого больше нет: остальное выдаётся
-                RYSHelm.LOG.warn("[ryshelm] набор {}: предмет не прочитан: {}", kit.name, e.getMessage());
+                RYSHelm.LOG.warn("[ryshelm] kit {}: item not read: {}", kit.name, e.getMessage());
             }
         }
         HelmData.PlayerInfo info = Helm.data().player(p.getUUID(), p.getGameProfile().getName());

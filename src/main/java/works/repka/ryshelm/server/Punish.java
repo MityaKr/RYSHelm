@@ -15,6 +15,7 @@ import works.repka.ryshelm.HelmPerms;
 import works.repka.ryshelm.data.HelmData;
 import works.repka.ryshelm.logic.Kind;
 import works.repka.ryshelm.logic.Lang;
+import works.repka.ryshelm.logic.Said;
 import works.repka.ryshelm.logic.Term;
 
 /**
@@ -55,7 +56,7 @@ public final class Punish {
         p.target = target;
         p.targetName = targetName;
         p.by = actor == null ? null : actor.getUUID();
-        p.byName = actor == null ? "консоль" : actor.getGameProfile().getName();
+        p.byName = actor == null ? Helm.CONSOLE : actor.getGameProfile().getName();
         p.rule = Math.max(0, rule);
         p.reason = reason == null ? "" : reason.strip();
         p.shown = shown;
@@ -71,8 +72,7 @@ public final class Punish {
         }
         data.punishments.add(p);
         Helm.dirty();
-        String term = kind.timed() ? Term.onLabel(millis) : "";
-        Helm.log(kind.id(), actor, target, targetName, term, note(p));
+        Helm.log(kind.id(), actor, target, targetName, kind.timed() ? Said.of("log.text", Said.termOn(millis)) : Said.NONE, note(p));
         // игроку на его языке; вне сети на языке модератора: отложенное уведомление хранится готовой строкой
         Lang lang = Texts.lang(online != null ? online : actor);
         String told = told(lang, p);
@@ -84,7 +84,7 @@ public final class Punish {
             case BAN -> {
                 UserBanList bans = server.getPlayerList().getBans();
                 GameProfile gp = new GameProfile(target, targetName);
-                bans.add(new UserBanListEntry(gp, new Date(now), p.byName, p.expires == 0 ? null : new Date(p.expires), shown ? banReason(lang, p) : lang.t("ryshelm.msg.ban")));
+                bans.add(new UserBanListEntry(gp, new Date(now), actor == null ? "Server" : p.byName, p.expires == 0 ? null : new Date(p.expires), shown ? banReason(lang, p) : lang.t("ryshelm.msg.ban")));
                 if (online != null) online.connection.disconnect(banText(online, p));
             }
         }
@@ -103,10 +103,8 @@ public final class Punish {
     }
 
     /** «п. 3 · мат в общем чате» для журнала. */
-    static String note(HelmData.Punishment p) {
-        String r = p.rule > 0 ? "п. " + p.rule : "";
-        if (!p.reason.isEmpty()) r = r.isEmpty() ? p.reason : r + " · " + p.reason;
-        return r;
+    static Said note(HelmData.Punishment p) {
+        return Said.join(" · ", java.util.List.of(p.rule > 0 ? Said.of("msg.rule_short", p.rule) : Said.NONE, Said.lit(p.reason)));
     }
 
     /** Что видит игрок: срок, пункт правил, причина (если «Игрок видит причину»). */
@@ -152,7 +150,7 @@ public final class Punish {
         if (!p.active(System.currentTimeMillis())) return Texts.t(actor, "msg.punish.inactive");
         if (actor != null && !Roles.atLeast(actor, Roles.OPERATOR) && !actor.getUUID().equals(p.by)) return Texts.t(actor, "msg.punish.revoke_who");
         p.revoked = System.currentTimeMillis();
-        p.revokedBy = actor == null ? "консоль" : actor.getGameProfile().getName();
+        p.revokedBy = actor == null ? Helm.CONSOLE : actor.getGameProfile().getName();
         Helm.dirty();
         if (p.kind == Kind.BAN) server.getPlayerList().getBans().remove(new GameProfile(p.target, p.targetName));
         if (p.kind == Kind.MUTE) Helm.mail(p.target, "unmute|");
@@ -171,7 +169,7 @@ public final class Punish {
                 if (server.getPlayerList().getBans().isBanned(gp)) {
                     if (actor != null && !HelmPerms.BAN_TEMP.test(actor)) return Texts.t(actor, "msg.punish.no_unban");
                     server.getPlayerList().getBans().remove(gp);
-                    Helm.log("unban", actor, target, gp.getName(), "", "бан из списка игры");
+                    Helm.log("unban", actor, target, gp.getName(), Said.NONE, Said.of("log.game_ban"));
                     return null;
                 }
             }

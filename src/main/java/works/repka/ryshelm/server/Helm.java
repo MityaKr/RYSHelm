@@ -24,7 +24,9 @@ import works.repka.ryshelm.RYSHelm;
 import works.repka.ryshelm.data.HelmData;
 import works.repka.ryshelm.data.HelmSettings;
 import works.repka.ryshelm.data.Journal;
+import works.repka.ryshelm.logic.Lang;
 import works.repka.ryshelm.logic.RulesText;
+import works.repka.ryshelm.logic.Said;
 
 /**
  * Сердце RYSHelm на сервере: данные, настройки, правила, журнал, роли и таблица прав. Всё зовётся из главного потока
@@ -53,7 +55,7 @@ public final class Helm {
     private static @Nullable MinecraftServer server;
     private static HelmData data = new HelmData();
     private static HelmSettings settings = new HelmSettings();
-    private static RulesText rules = RulesText.parse(RulesText.DEFAULT);
+    private static RulesText rules = RulesText.parse(RulesText.defaults(Lang.server().russian()));
     private static long rulesDate;
     private static @Nullable Journal journal;
     private static boolean dirty, dirtyPlayers;
@@ -154,14 +156,14 @@ public final class Helm {
         journal = new Journal(worldDir(s).resolve("ryshelm"), settings.journalDays, ZoneId.systemDefault());
         try {
             int n = journal.load(System.currentTimeMillis());
-            RYSHelm.LOG.info("[ryshelm] журнал: {} записей за {} дней", n, settings.journalDays);
+            RYSHelm.LOG.info("[ryshelm] journal: {} entries over {} days", n, settings.journalDays);
         } catch (IOException e) {
-            RYSHelm.LOG.error("[ryshelm] журнал не прочитан", e);
+            RYSHelm.LOG.error("[ryshelm] journal not read", e);
         }
         prune();
         Staff.restoreAfterCrash(s);
-        RYSHelm.LOG.info("[ryshelm] запущен: модераторов {}, наказаний {}, жалоб {}, правила {} ({} пунктов){}", data.moderators.size(),
-            data.punishments.size(), data.reports.size(), rules.version(), rules.rules().size(), settings.rulesOnJoin ? ", при входе" : "");
+        RYSHelm.LOG.info("[ryshelm] started: {} moderators, {} punishments, {} reports, rules {} ({} items){}", data.moderators.size(),
+            data.punishments.size(), data.reports.size(), rules.version(), rules.rules().size(), settings.rulesOnJoin ? ", on join" : "");
     }
 
     public static void stop() {
@@ -171,7 +173,7 @@ public final class Helm {
             try {
                 journal.close();
             } catch (IOException e) {
-                RYSHelm.LOG.error("[ryshelm] журнал не закрыт", e);
+                RYSHelm.LOG.error("[ryshelm] journal not closed", e);
             }
         }
         // сервер останавливается: дождаться записи на диск
@@ -180,7 +182,7 @@ public final class Helm {
         if (w != null) {
             w.shutdown();
             try {
-                if (!w.awaitTermination(15, java.util.concurrent.TimeUnit.SECONDS)) RYSHelm.LOG.error("[ryshelm] запись данных не закончилась за 15 с");
+                if (!w.awaitTermination(15, java.util.concurrent.TimeUnit.SECONDS)) RYSHelm.LOG.error("[ryshelm] data write did not finish in 15 s");
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
             }
@@ -233,7 +235,7 @@ public final class Helm {
         try {
             w.submit(() -> {}).get(15, java.util.concurrent.TimeUnit.SECONDS);
         } catch (Exception e) {
-            RYSHelm.LOG.error("[ryshelm] запись данных не дождались", e);
+            RYSHelm.LOG.error("[ryshelm] gave up waiting for the data write", e);
         }
     }
 
@@ -242,7 +244,7 @@ public final class Helm {
         int n = data.prune(System.currentTimeMillis(), settings.reportDays * works.repka.ryshelm.logic.Term.DAY, 7 * works.repka.ryshelm.logic.Term.DAY);
         if (n > 0) {
             dirty();
-            RYSHelm.LOG.info("[ryshelm] старых жалоб и строк чата убрано: {}", n);
+            RYSHelm.LOG.info("[ryshelm] old reports and chat lines removed: {}", n);
         }
     }
 
@@ -252,13 +254,13 @@ public final class Helm {
         try {
             if (!Files.exists(f)) {
                 Files.createDirectories(f.getParent());
-                Files.writeString(f, RulesText.DEFAULT, StandardCharsets.UTF_8);
+                Files.writeString(f, RulesText.defaults(Lang.server().russian()), StandardCharsets.UTF_8);
             }
             rules = RulesText.parse(Files.readString(f, StandardCharsets.UTF_8));
             rulesDate = Files.getLastModifiedTime(f).toMillis();
         } catch (IOException e) {
-            RYSHelm.LOG.error("[ryshelm] правила не прочитаны: {}", f, e);
-            rules = RulesText.parse(RulesText.DEFAULT);
+            RYSHelm.LOG.error("[ryshelm] rules not read: {}", f, e);
+            rules = RulesText.parse(RulesText.defaults(Lang.server().russian()));
         }
     }
 
@@ -280,7 +282,7 @@ public final class Helm {
             return t == null ? fallback : t;
         } catch (Exception e) {
             // битый файл не теряем: копия рядом, работаем с чистого листа
-            RYSHelm.LOG.error("[ryshelm] файл не прочитан, копия .broken рядом: {}", file, e);
+            RYSHelm.LOG.error("[ryshelm] file not read, a .broken copy is next to it: {}", file, e);
             try {
                 Files.copy(file, file.resolveSibling(file.getFileName() + ".broken-" + System.currentTimeMillis()), StandardCopyOption.REPLACE_EXISTING);
             } catch (IOException ignored) {
@@ -300,7 +302,7 @@ public final class Helm {
             Files.writeString(tmp, text, StandardCharsets.UTF_8);
             Files.move(tmp, file, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
         } catch (IOException e) {
-            RYSHelm.LOG.error("[ryshelm] не записан {}", file, e);
+            RYSHelm.LOG.error("[ryshelm] not written: {}", file, e);
         }
     }
 
@@ -354,19 +356,34 @@ public final class Helm {
 
     // ---- журнал ----
 
+    /** Имя в журнале за консоль и за сам сервер: хранится как раньше, при показе переводит {@link Texts#who}. */
+    public static final String CONSOLE = "консоль", SERVER = "сервер";
+
+    public static void log(String type, @Nullable UUID actor, String actorName, @Nullable UUID target, String targetName, Said detail, Said note) {
+        add(type, targetName, Journal.entry(type, actor, actorName, target, targetName, detail, note));
+    }
+
     public static void log(String type, @Nullable UUID actor, String actorName, @Nullable UUID target, String targetName, String detail, String note) {
-        Journal j = journal;
-        if (j == null) return;
-        try {
-            j.add(Journal.entry(type, actor, actorName, target, targetName, detail, note));
-        } catch (IOException e) {
-            RYSHelm.LOG.error("[ryshelm] запись журнала не легла: {} {}", type, targetName, e);
-        }
-        Sync.journalChanged();
+        add(type, targetName, Journal.entry(type, actor, actorName, target, targetName, detail, note));
+    }
+
+    public static void log(String type, @Nullable ServerPlayer actor, @Nullable UUID target, String targetName, Said detail, Said note) {
+        log(type, actor == null ? null : actor.getUUID(), actor == null ? CONSOLE : actor.getGameProfile().getName(), target, targetName, detail, note);
     }
 
     public static void log(String type, @Nullable ServerPlayer actor, @Nullable UUID target, String targetName, String detail, String note) {
-        log(type, actor == null ? null : actor.getUUID(), actor == null ? "консоль" : actor.getGameProfile().getName(), target, targetName, detail, note);
+        log(type, actor == null ? null : actor.getUUID(), actor == null ? CONSOLE : actor.getGameProfile().getName(), target, targetName, detail, note);
+    }
+
+    private static void add(String type, String targetName, Journal.Entry entry) {
+        Journal j = journal;
+        if (j == null) return;
+        try {
+            j.add(entry);
+        } catch (IOException e) {
+            RYSHelm.LOG.error("[ryshelm] journal entry not written: {} {}", type, targetName, e);
+        }
+        Sync.journalChanged();
     }
 
     static void flushJournal() {
@@ -375,7 +392,7 @@ public final class Helm {
         try {
             j.flush();
         } catch (IOException e) {
-            RYSHelm.LOG.error("[ryshelm] журнал не сброшен на диск", e);
+            RYSHelm.LOG.error("[ryshelm] journal not flushed to disk", e);
         }
     }
 
@@ -427,7 +444,7 @@ public final class Helm {
             && info.lastSeen > 0 && !hasJoinBanned(p.getUUID(), lastBan.id)) {
             boolean noted = data.notes.stream().anyMatch(n -> p.getUUID().equals(n.target));
             log("join_banned", null, p.getGameProfile().getName(), p.getUUID(), p.getGameProfile().getName(),
-                Sync.date(lastBan.revoked > 0 ? lastBan.revoked : lastBan.expires), (noted ? "есть заметка" : "") + "#" + lastBan.id);
+                Said.lit(Sync.date(lastBan.revoked > 0 ? lastBan.revoked : lastBan.expires)), (noted ? Said.of("log.has_note") : Said.NONE).then(Said.lit("#" + lastBan.id)));
         }
         Chat.login(p);
         Staff.login(p, info);
