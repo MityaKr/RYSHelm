@@ -97,7 +97,8 @@ public final class Kits {
      */
     public static @Nullable String give(ServerPlayer p, Kit kit, boolean force, @Nullable ServerPlayer by) {
         long left = left(p, kit);
-        if (!force && left > 0) return left == Long.MAX_VALUE ? "Набор «" + kit.name + "» берут один раз" : "Набор «" + kit.name + "» через " + Term.left(left);
+        ServerPlayer tell = by != null ? by : p;
+        if (!force && left > 0) return left == Long.MAX_VALUE ? Texts.t(tell, "msg.kit.once", kit.name) : Texts.t(tell, "msg.kit.wait", kit.name, Texts.lang(tell).termLeft(left));
         HolderLookup.Provider reg = p.registryAccess();
         int given = 0;
         for (String snbt : kit.items) {
@@ -117,7 +118,7 @@ public final class Kits {
         Helm.dirty();
         if (by != null) Helm.log("kit_give", by, p.getUUID(), p.getGameProfile().getName(), kit.name, "");
         Sync.hello(p);
-        return given == 0 ? "Набор пуст: предметы не прочитаны" : null;
+        return given == 0 ? Texts.t(tell, "msg.kit.unreadable") : null;
     }
 
     /** Первый вход: стартовый набор из настроек, если он есть. */
@@ -126,6 +127,6 @@ public final class Kits {
         if (name == null || name.isBlank()) return;
         Kit kit = get(name);
         if (kit == null) return;
-        if (give(p, kit, true, null) == null) Sync.notice(p, "kit", "row", "CHEST", "Стартовый набор в инвентаре", "", false);
+        if (give(p, kit, true, null) == null) Sync.notice(p, "kit", "row", "CHEST", Texts.t(p, "msg.kit.starter_given"), "", false);
     }
 }

@@ -23,7 +23,9 @@ import works.repka.ryscore.ui.Kit;
 import works.repka.ryscore.ui.ScaledScreen;
 import works.repka.ryscore.ui.Scroller;
 import works.repka.ryscore.ui.Type.Weight;
+import works.repka.ryshelm.data.Journal;
 import works.repka.ryshelm.logic.Kind;
+import works.repka.ryshelm.logic.Lang;
 import works.repka.ryshelm.logic.Term;
 
 /**
@@ -33,13 +35,16 @@ import works.repka.ryshelm.logic.Term;
  */
 public final class ServerScreen extends ScaledScreen {
     enum Tab {
-        PLAYERS("players", "Игроки"), RULES("rules", "Правила"), REPORTS("reports", "Жалобы"), JOURNAL("journal", "Журнал"), ROLES("roles", "Роли"), SETTINGS("settings", "Настройки");
+        PLAYERS("players"), RULES("rules"), REPORTS("reports"), JOURNAL("journal"), ROLES("roles"), SETTINGS("settings");
 
-        final String id, label;
+        final String id;
 
-        Tab(String id, String label) {
+        Tab(String id) {
             this.id = id;
-            this.label = label;
+        }
+
+        String label() {
+            return tr("ui.tab." + id);
         }
     }
 
@@ -85,7 +90,7 @@ public final class ServerScreen extends ScaledScreen {
     final ReportsPane reports = new ReportsPane(this);
 
     public ServerScreen() {
-        super(Component.literal("Сервер"));
+        super(Component.translatable("ryshelm.ui.title"));
     }
 
     /** Открыть окно на вкладке (null: прежняя). */
@@ -110,16 +115,16 @@ public final class ServerScreen extends ScaledScreen {
     protected void init() {
         super.init();
         fields.clear();
-        search = field(32, "Игрок, жалоба, запись журнала", search);
-        reason = field(200, "Что случилось", reason);
+        search = field(32, tr("ui.hint.search"), search);
+        reason = field(200, tr("ui.hint.what"), reason);
         customTerm = field(12, "2h, 3d", customTerm);
-        noteBox = field(500, "Заметка видна только персоналу", noteBox);
-        reportText = field(600, "Что случилось", reportText);
-        who = field(32, "Игрок или модератор", who);
-        welcome = field(200, "Текст при входе", welcome);
-        serverName = field(24, "Имя в шапке окна", serverName);
+        noteBox = field(500, tr("ui.hint.note"), noteBox);
+        reportText = field(600, tr("ui.hint.what"), reportText);
+        who = field(32, tr("ui.hint.who"), who);
+        welcome = field(200, tr("ui.hint.welcome"), welcome);
+        serverName = field(24, tr("ui.hint.server_name"), serverName);
         ladder = field(120, "warn, mute 1h, ban 1d", ladder);
-        wlName = field(16, "Ник игрока", wlName);
+        wlName = field(16, tr("ui.hint.nick"), wlName);
         if (!tabVisible(tab)) tab = Tab.PLAYERS;
         lastRequest = "";
         request();
@@ -176,8 +181,14 @@ public final class ServerScreen extends ScaledScreen {
         View.request(tab.id, card, punishTarget, report, whoText, journalDays, journalCat);
     }
 
+    /** Текст по ключу {@code ryshelm.<key>} на языке игры. */
     static String tr(String key, Object... args) {
-        return Component.translatable(key, args).getString();
+        return Tr.tr(key, args);
+    }
+
+    /** «3 дня»: ключ {@code ryshelm.<key>.one/.few/.many}. */
+    static String n(String key, long n, Object... more) {
+        return Tr.n(key, n, more);
     }
 
     // ---- кадр ----
@@ -232,12 +243,12 @@ public final class ServerScreen extends ScaledScreen {
         // плашка сервера: зелёный квадрат со значком
         Draw.round(g, px + 8.5f, py + 7.5f, 14, 14, 3.5f, Draw.mix(t.c("state.ok"), 0xFF000000, 0.25f));
         Icons.draw(g, Icons.Shape.SERVER, px + 11.5f, py + 10.5f, 8, 0xFFFFFFFF);
-        String name = HelmClient.server.isEmpty() ? "Сервер" : HelmClient.server;
+        String name = HelmClient.server.isEmpty() ? tr("ui.title") : HelmClient.server;
         List<Kit.Tab> tabs = new ArrayList<>();
         for (Tab x : Tab.values()) {
             if (!tabVisible(x)) continue;
             int count = x == Tab.REPORTS ? HelmClient.reports : -1;
-            tabs.add(new Kit.Tab(x.label, count > 0 ? count : -1, tab == x, () -> switchTab(x)));
+            tabs.add(new Kit.Tab(x.label(), count > 0 ? count : -1, tab == x, () -> switchTab(x)));
         }
         // вкладки встают сразу за именем сервера, как в окне карты; имя берёт столько, сколько оставляют вкладки
         int nameX = px + 27, tabsEnd = px + 420;
@@ -255,7 +266,7 @@ public final class ServerScreen extends ScaledScreen {
         Kit.iconButton(g, t, gx, py + 6, 17, hot);
         Icons.draw(g, Icons.Shape.GEAR, gx + 4.5f, py + 10.5f, 8, hot ? t.c("accent") : t.c("button.fg"));
         hits.add(gx, py + 6, 17, 17, b -> Actions.openKeys(this));
-        if (hot) tooltip = List.of("Клавиши и колесо");
+        if (hot) tooltip = List.of(tr("ui.keys"));
         Kit.close(g, t, hits, px + 575, py + 5, mx, my, this::onClose);
     }
 
@@ -278,24 +289,24 @@ public final class ServerScreen extends ScaledScreen {
 
     private void dropdownLists(GuiGraphics g) {
         if (tab == Tab.PLAYERS && sortDd.open) {
-            Kit.dropdownList(g, t, hits, sortDd, List.of(new Kit.Option("Сначала в сети", -1), new Kit.Option("По имени", -1), new Kit.Option("По команде", -1)),
+            Kit.dropdownList(g, t, hits, sortDd, List.of(new Kit.Option(tr("ui.sort.online"), -1), new Kit.Option(tr("ui.sort.name"), -1), new Kit.Option(tr("ui.sort.team"), -1)),
                 sort, 100, mx, my, i -> sort = i);
         }
         if (tab == Tab.JOURNAL) {
-            if (daysDd.open) Kit.dropdownList(g, t, hits, daysDd, List.of(new Kit.Option("1 день", -1), new Kit.Option("7 дней", -1), new Kit.Option("30 дней", -1),
-                new Kit.Option("90 дней", -1), new Kit.Option("всё время", -1)), indexOf(DAYS, journalDays), 70, mx, my, i -> {
+            if (daysDd.open) Kit.dropdownList(g, t, hits, daysDd, List.of(new Kit.Option(n("term.days", 1), -1), new Kit.Option(n("term.days", 7), -1), new Kit.Option(n("term.days", 30), -1),
+                new Kit.Option(n("term.days", 90), -1), new Kit.Option(tr("ui.all_time"), -1)), indexOf(DAYS, journalDays), 70, mx, my, i -> {
                     journalDays = DAYS[i];
                     request();
                 });
-            if (keepDd.open) Kit.dropdownList(g, t, hits, keepDd, List.of(new Kit.Option("30 дней", -1), new Kit.Option("60 дней", -1), new Kit.Option("90 дней", -1),
-                new Kit.Option("180 дней", -1), new Kit.Option("365 дней", -1)), indexOf(KEEP, HelmClient.PENDING.value("s.journalDays", View.journal.getInt("keep"))), 70, mx, my,
+            if (keepDd.open) Kit.dropdownList(g, t, hits, keepDd, List.of(new Kit.Option(n("term.days", 30), -1), new Kit.Option(n("term.days", 60), -1), new Kit.Option(n("term.days", 90), -1),
+                new Kit.Option(n("term.days", 180), -1), new Kit.Option(n("term.days", 365), -1)), indexOf(KEEP, HelmClient.PENDING.value("s.journalDays", View.journal.getInt("keep"))), 70, mx, my,
                 i -> setInt("journalDays", KEEP[i]));
         }
         if (tab == Tab.ROLES && addModDd.open) {
             ListTag c = View.roles.getList("candidates", Tag.TAG_COMPOUND);
             List<Kit.Option> options = new ArrayList<>();
             for (Tag x : c) options.add(new Kit.Option(((CompoundTag) x).getString("name"), -1));
-            if (options.isEmpty()) options.add(new Kit.Option("Некого: все в сети уже персонал", -1));
+            if (options.isEmpty()) options.add(new Kit.Option(tr("ui.roles.nobody"), -1));
             Kit.dropdownList(g, t, hits, addModDd, options, -1, 120, mx, my, i -> {
                 if (i >= c.size()) return;
                 CompoundTag p = c.getCompound(i);
@@ -308,7 +319,7 @@ public final class ServerScreen extends ScaledScreen {
         }
         if (punishKind != null && ruleDd.open) {
             List<Kit.Option> options = new ArrayList<>();
-            options.add(new Kit.Option("Без пункта правил", -1));
+            options.add(new Kit.Option(tr("ui.no_rule"), -1));
             for (Tag x : View.rules.getList("items", Tag.TAG_COMPOUND)) {
                 CompoundTag r = (CompoundTag) x;
                 options.add(new Kit.Option(r.getInt("n") + ". " + r.getString("title"), -1));
@@ -426,27 +437,27 @@ public final class ServerScreen extends ScaledScreen {
         int x = left;
         int fy = top + 9;
         if (staff) {
-            for (String[] f : new String[][] {{"online", "В сети"}, {"all", "Все"}, {"newbie", "Новички"}, {"punished", "Наказаны"}, {"reported", "С жалобами"}}) {
+            for (String[] f : new String[][] {{"online", tr("ui.filter.online")}, {"all", tr("ui.filter.all")}, {"newbie", tr("ui.filter.newbie")}, {"punished", tr("ui.filter.punished")}, {"reported", tr("ui.filter.reported")}}) {
                 x += Kit.pill(g, t, hits, x, fy, f[1] + " · " + (f[0].equals("all") && View.players.contains("known") ? Math.max(count("all"), View.players.getInt("known")) : count(f[0])), filter.equals(f[0]), mx, my, () -> {
                     filter = f[0];
                     listScroll.reset();
                 }) + 3;
             }
             String label = switch (sort) {
-                case 1 -> "По имени";
-                case 2 -> "По команде";
-                default -> "Сначала в сети";
+                case 1 -> tr("ui.sort.name");
+                case 2 -> tr("ui.sort.team");
+                default -> tr("ui.sort.online");
             };
             int dw = 85;
             Kit.dropdown(g, t, hits, sortDd, left + listW - dw, fy, dw, label, sort != 0, mx, my);
         } else {
             if (!filter.equals("online") && !filter.equals("team")) filter = "online";
-            for (String[] f : new String[][] {{"online", "В сети"}, {"team", "Моя команда"}}) {
+            for (String[] f : new String[][] {{"online", tr("ui.filter.online")}, {"team", tr("ui.filter.team")}}) {
                 x += Kit.pill(g, t, hits, x, fy, f[1] + " · " + count(f[0]), filter.equals(f[0]), mx, my, () -> filter = f[0]) + 3;
             }
             String mods = onlineStaff();
             if (!mods.isEmpty()) {
-                String text = "модератор в сети: " + mods;
+                String text = tr("ui.players.staff_online", mods);
                 float tw = Draw.labelWidth(text, 11.5f, Weight.REGULAR);
                 Icons.draw(g, Icons.Shape.EYE, left + listW - tw - 8, fy + 3.5f, 6, t.c("text.muted"));
                 Draw.label(g, text, left + listW - tw, fy + 7, 11.5f, Weight.REGULAR, t.c("text.muted"));
@@ -455,10 +466,10 @@ public final class ServerScreen extends ScaledScreen {
         // заголовки столбцов
         int hy = top + 36;
         int cTeam = staff ? left + 106 : left + 102, cWhere = staff ? left + 186 : left + 177, cWhen = left + 278;
-        Ui.caps(g, t, "Игрок", left + 6, hy);
-        Ui.caps(g, t, "Команда", cTeam, hy);
-        Ui.caps(g, t, "Где", cWhere, hy);
-        if (staff) Ui.caps(g, t, "Когда", cWhen, hy);
+        Ui.caps(g, t, tr("ui.col.player"), left + 6, hy);
+        Ui.caps(g, t, tr("ui.col.team"), cTeam, hy);
+        Ui.caps(g, t, tr("ui.col.where"), cWhere, hy);
+        if (staff) Ui.caps(g, t, tr("ui.col.when"), cWhen, hy);
         // строки
         List<CompoundTag> rows = visibleRows();
         int rowH = staff ? 23 : 23, step = staff ? 26 : 31;
@@ -469,9 +480,9 @@ public final class ServerScreen extends ScaledScreen {
         Draw.scissor(g, left - 2, listTop, left + listW + 2, listBottom);
         int y = listTop - scroll;
         if (rows.isEmpty()) {
-            Draw.label(g, HelmClient.present ? "Ничего не нашлось." : "На сервере нет RYSHelm: видно только, кто в сети.", left + 6, listTop + 8, 12.5f, Weight.REGULAR, t.c("text.muted"));
+            Draw.label(g, HelmClient.present ? tr("ui.players.none") : tr("ui.players.no_mod"), left + 6, listTop + 8, 12.5f, Weight.REGULAR, t.c("text.muted"));
             if (HelmClient.present && (!search.getValue().isEmpty() || !filter.equals("online")))
-                Ui.link(g, t, hits, "Показать все", left + 6 + Draw.labelWidth("Ничего не нашлось. ", 12.5f, Weight.REGULAR), listTop + 8, 12.5f, mx, my, () -> {
+                Ui.link(g, t, hits, tr("ui.players.show_all"), left + 6 + Draw.labelWidth(tr("ui.players.none") + " ", 12.5f, Weight.REGULAR), listTop + 8, 12.5f, mx, my, () -> {
                     search.setValue("");
                     filter = staff ? "all" : "online";
                 });
@@ -493,7 +504,7 @@ public final class ServerScreen extends ScaledScreen {
         List<String> names = new ArrayList<>();
         for (CompoundTag r : rows()) if (r.getBoolean("online") && "moderator".equals(r.getString("role"))) names.add(r.getString("name"));
         if (names.isEmpty()) for (CompoundTag r : rows()) if (r.getBoolean("online") && "operator".equals(r.getString("role"))) names.add(r.getString("name"));
-        return names.isEmpty() ? "" : names.size() <= 2 ? String.join(", ", names) : names.get(0) + " и ещё " + (names.size() - 1);
+        return names.isEmpty() ? "" : names.size() <= 2 ? String.join(", ", names) : tr("ui.players.and_more", names.get(0), names.size() - 1);
     }
 
     private void row(GuiGraphics g, CompoundTag r, int x, int y, int w, int h, boolean staff, int cTeam, int cWhere, int cWhen) {
@@ -516,16 +527,16 @@ public final class ServerScreen extends ScaledScreen {
         Draw.label(g, Draw.ellipsize(name, 60, 13, Weight.SEMIBOLD), x + 25, cy, 13, Weight.SEMIBOLD, nameColor);
         float chipX = x + 25 + Math.min(60, Draw.labelWidth(name, 13, Weight.SEMIBOLD)) + 4;
         String role = r.getString("role");
-        if ("operator".equals(role)) Ui.roleChip(g, t, "оператор", chipX, cy, "operator");
-        else if ("moderator".equals(role)) Ui.roleChip(g, t, "модератор", chipX, cy, "moderator");
-        else if (r.getBoolean("newbie") || r.getBoolean("rulesPending")) Ui.roleChip(g, t, "новичок", chipX, cy, "newbie");
+        if ("operator".equals(role)) Ui.roleChip(g, t, tr("ui.role.operator"), chipX, cy, "operator");
+        else if ("moderator".equals(role)) Ui.roleChip(g, t, tr("ui.role.moderator"), chipX, cy, "moderator");
+        else if (r.getBoolean("newbie") || r.getBoolean("rulesPending")) Ui.roleChip(g, t, tr("ui.role.newbie"), chipX, cy, "newbie");
         if (r.contains("team")) Ui.team(g, t, r.getString("team"), r.getInt("color"), cTeam, cy, cWhere - cTeam - 6);
         // где
         String where;
-        if (!online) where = "не в сети";
+        if (!online) where = tr("ui.players.offline");
         else {
             String dim = Words.dim(r.getString("dim"));
-            if (r.getUUID("id").equals(Minecraft.getInstance().player.getUUID())) where = dim + " · вы";
+            if (r.getUUID("id").equals(Minecraft.getInstance().player.getUUID())) where = dim + " · " + tr("ui.players.you");
             else where = r.contains("dist") ? dim + " · " + Words.distance(r.getInt("dist")) : dim;
             if (staff && !r.getString("land").isEmpty() && !r.contains("dist")) where = dim + " · " + r.getString("land");
         }
@@ -536,10 +547,10 @@ public final class ServerScreen extends ScaledScreen {
             String when;
             int dot;
             if (online && r.getBoolean("rulesPending")) {
-                when = "правила не приняты";
+                when = tr("ui.players.rules_pending");
                 dot = t.c("state.warn");
             } else if (online && r.contains("afk")) {
-                when = "отошёл " + Words.span(r.getLong("afk"));
+                when = tr("ui.players.afk", Words.span(r.getLong("afk")));
                 dot = t.c("state.warn");
             } else if (online) {
                 when = Words.online(r.getLong("since"));
@@ -552,11 +563,11 @@ public final class ServerScreen extends ScaledScreen {
             Draw.label(g, Draw.ellipsize(when, 70, 12, Weight.REGULAR), cWhen + 6, cy, 12, Weight.REGULAR, online ? t.c("text.body") : t.c("text.muted"));
             // значки справа: предупреждения, жалобы, заглушён, бан, заморожен
             float ix = x + w - 8;
-            ix = mark(g, ix, cy, Icons.Shape.FLAG, r.getInt("reports"), t.c("text.secondary"), "жалоб на игрока: " + r.getInt("reports"));
-            ix = mark(g, ix, cy, Icons.Shape.WARN, r.getInt("warns"), t.c("text.secondary"), "предупреждений за 30 дней: " + r.getInt("warns"));
-            if (r.getBoolean("muted")) ix = mark(g, ix, cy, Icons.Shape.MUTE, 0, t.c("state.warn"), "заглушён");
-            if (r.getBoolean("banned")) ix = mark(g, ix, cy, Icons.Shape.BAN, 0, t.c("state.bad"), "забанен");
-            if (r.getBoolean("frozen")) mark(g, ix, cy, Icons.Shape.SNOW, 0, t.c("chip.mod.fg"), "заморожен");
+            ix = mark(g, ix, cy, Icons.Shape.FLAG, r.getInt("reports"), t.c("text.secondary"), tr("ui.players.mark.reports", r.getInt("reports")));
+            ix = mark(g, ix, cy, Icons.Shape.WARN, r.getInt("warns"), t.c("text.secondary"), tr("ui.players.mark.warns", r.getInt("warns")));
+            if (r.getBoolean("muted")) ix = mark(g, ix, cy, Icons.Shape.MUTE, 0, t.c("state.warn"), tr("ui.players.mark.muted"));
+            if (r.getBoolean("banned")) ix = mark(g, ix, cy, Icons.Shape.BAN, 0, t.c("state.bad"), tr("ui.players.mark.banned"));
+            if (r.getBoolean("frozen")) mark(g, ix, cy, Icons.Shape.SNOW, 0, t.c("chip.mod.fg"), tr("ui.players.mark.frozen"));
         } else if (online && !id.equals(Minecraft.getInstance().player.getUUID())) {
             // игроку: «К игроку», «Позвать» и меню (макет 14). Запрос шлёт карта командой, у FTB Essentials та же команда
             int bx = x + w - 6 - 14;
@@ -569,9 +580,9 @@ public final class ServerScreen extends ScaledScreen {
                 menuY = y + 21;
             });
             boolean ally = r.getBoolean("mine");
-            Ui.button(g, t, hits, bx - 3 - 45, y + 4, 45, 15, Icons.Shape.USERS, "Позвать", false, mx, my, () -> command("tpahere " + name));
-            Ui.button(g, t, hits, bx - 6 - 92, y + 4, 47, 15, Icons.Shape.TELEPORT, "К игроку", false, mx, my, () -> command("tpa " + name));
-            if (ally && Kit.over(mx, my, bx - 3 - 45, y + 4, 45, 15)) tooltip = List.of("Свой по команде: запрос всё равно уходит, ответ клавишей Y");
+            Ui.button(g, t, hits, bx - 3 - 45, y + 4, 45, 15, Icons.Shape.USERS, tr("ui.players.summon"), false, mx, my, () -> command("tpahere " + name));
+            Ui.button(g, t, hits, bx - 6 - 92, y + 4, 47, 15, Icons.Shape.TELEPORT, tr("ui.players.go_to"), false, mx, my, () -> command("tpa " + name));
+            if (ally && Kit.over(mx, my, bx - 3 - 45, y + 4, 45, 15)) tooltip = List.of(tr("ui.players.ally"));
         }
     }
 
@@ -608,15 +619,15 @@ public final class ServerScreen extends ScaledScreen {
         g.pose().translate(0, 0, 400);
         Draw.shadow(g, x, y, w, h, 5f, 0.8f);
         Draw.roundBox(g, x, y, w, h, 5f, t.c("panel.bg"), t.c("panel.border"));
-        menuItem(g, x + 3, y + 3, w - 6, Icons.Shape.CHAT, "Написать", () -> {
+        menuItem(g, x + 3, y + 3, w - 6, Icons.Shape.CHAT, tr("ui.menu.message"), () -> {
             Minecraft.getInstance().setScreen(new net.minecraft.client.gui.screens.ChatScreen("/msg " + name + " "));
         });
-        menuItem(g, x + 3, y + 18, w - 6, Icons.Shape.MAP, "Найти в списке карты", () -> {
+        menuItem(g, x + 3, y + 18, w - 6, Icons.Shape.MAP, tr("ui.menu.map"), () -> {
             works.repka.ryscore.map.MapApi.get().openTab(net.minecraft.resources.ResourceLocation.fromNamespaceAndPath("rysmap", "players"));
         });
         Draw.round(g, x + 4, y + 33.5f, w - 8, 0.5f, 0.02f, t.c("panel.border"));
         boolean canReport = !HelmClient.present || HelmClient.can("ryshelm.report");
-        menuItem(g, x + 3, y + 35, w - 6, Icons.Shape.FLAG, "Пожаловаться", canReport ? () -> {
+        menuItem(g, x + 3, y + 35, w - 6, Icons.Shape.FLAG, tr("ui.menu.report"), canReport ? () -> {
             reports.openForm(id, name);
         } : null);
         g.pose().popPose();
@@ -638,12 +649,12 @@ public final class ServerScreen extends ScaledScreen {
     /** Правая панель без выбранного игрока: кто в сети, что тут можно. */
     private void sideHint(GuiGraphics g, boolean staff) {
         int x = px + SPLIT + 9, y = py + HEAD + 10, w = W - SPLIT - 18;
-        Draw.label(g, staff ? "Карточка игрока" : "Игроки сервера", x, y + 6, 16, Weight.DISPLAY, t.c("text.primary"));
+        Draw.label(g, staff ? tr("ui.side.card") : tr("ui.side.players"), x, y + 6, 16, Weight.DISPLAY, t.c("text.primary"));
         String text = staff
-            ? "Выберите игрока слева: наиграно, где он и чья там земля, прошлые наказания, жалобы и заметки персонала, кнопки модератора."
-            : "«К игроку» и «Позвать» отправляют запрос, ответ приходит уведомлением с клавишами Y и N. Пожаловаться: кнопка ··· у игрока.";
+            ? tr("ui.side.card.text")
+            : tr("ui.side.players.text");
         int h = Ui.paragraph(g, text, x, y + 18, w, 12.5f, t.c("text.body"), 8);
-        Ui.callout(g, t, staff ? "Окно видят модераторы и операторы. Каждое действие персонала ложится в журнал." : "Модераторы видят жалобы сразу. Если в сети никого нет, жалоба ждёт.",
+        Ui.callout(g, t, staff ? tr("ui.side.card.note") : tr("ui.side.players.note"),
             x, y + 26 + h, w, false);
     }
 
@@ -657,8 +668,8 @@ public final class ServerScreen extends ScaledScreen {
         Ui.faceTile(g, t, id, x + 1, top + 9, 22, !online);
         Draw.label(g, Draw.ellipsize(name, w - 50, 18, Weight.DISPLAY), x + 29, top + 15, 18, Weight.DISPLAY, t.c("text.primary"));
         String team = c.getString("team");
-        String sub = (team.isEmpty() ? "без команды" : c.getBoolean("ownTeam") ? "своя команда" : team) + " · "
-            + (online ? Words.online(c.getLong("seen")) : "был " + Words.ago(c.getLong("seen")));
+        String sub = (team.isEmpty() ? tr("ui.card.no_team") : c.getBoolean("ownTeam") ? tr("ui.card.own_team") : team) + " · "
+            + (online ? Words.online(c.getLong("seen")) : tr("ui.card.seen", Words.ago(c.getLong("seen"))));
         if (!"player".equals(c.getString("role"))) sub = Words.role(c.getString("role")) + " · " + sub;
         Draw.label(g, Draw.ellipsize(sub, w - 40, 12, Weight.REGULAR), x + 29, top + 26.5f, 12, Weight.REGULAR, t.c("text.muted"));
         int cx = px + W - 20;
@@ -672,15 +683,15 @@ public final class ServerScreen extends ScaledScreen {
         int by = top + 37, bh = 58;
         Draw.roundBox(g, x, by, w, bh, 5f, t.c("card.bg"), t.c("card.border"));
         long played = c.getLong("played");
-        String first = c.contains("first") && c.getLong("first") > 0 ? " · с " + Words.dayMonth(c.getLong("first")) : "";
-        stat(g, x, by + 9.5f, w, "Наиграно", played > 0 ? Words.span(played) + first : "—", t.c("text.primary"));
+        String first = c.contains("first") && c.getLong("first") > 0 ? " · " + tr("ui.card.since", Words.dayMonth(c.getLong("first"))) : "";
+        stat(g, x, by + 9.5f, w, tr("ui.card.played"), played > 0 ? Words.span(played) + first : "—", t.c("text.primary"));
         Draw.round(g, x + 6, by + 19.5f, w - 12, 0.5f, 0.02f, t.c("card.border"));
         String where = c.contains("dim") ? Words.dim(c.getString("dim")) + " · " + c.getString("coords") : "—";
-        stat(g, x, by + 29, w, online ? "Где сейчас" : "Где видели", where, t.c("text.primary"));
+        stat(g, x, by + 29, w, online ? tr("ui.card.where_now") : tr("ui.card.where_seen"), where, t.c("text.primary"));
         Draw.round(g, x + 6, by + 38.5f, w - 12, 0.5f, 0.02f, t.c("card.border"));
         String land = c.getString("land");
-        String landText = land.isEmpty() ? (online ? "ничья" : "—") : land + (c.getBoolean("landOwn") ? ", своя" : ", чужая для него");
-        stat(g, x, by + 48.5f, w, "Чья земля", landText, !land.isEmpty() && !c.getBoolean("landOwn") ? t.c("state.warn") : t.c("text.primary"));
+        String landText = land.isEmpty() ? (online ? tr("ui.card.land.none") : "—") : land + ", " + (c.getBoolean("landOwn") ? tr("ui.card.land.own") : tr("ui.card.land.foreign"));
+        stat(g, x, by + 48.5f, w, tr("ui.card.land"), landText, !land.isEmpty() && !c.getBoolean("landOwn") ? t.c("state.warn") : t.c("text.primary"));
         // история и заметки прокручиваются между сведениями и кнопками
         boolean op = HelmClient.can("ryshelm.cheat");
         int actionsTop = py + H - (op ? 104 : 88);
@@ -692,11 +703,11 @@ public final class ServerScreen extends ScaledScreen {
         hits.clip(areaTop, areaBottom);
         Draw.scissor(g, px + SPLIT + 1, areaTop, px + W - 1, areaBottom);
         int y = areaTop - scroll;
-        Ui.caps(g, t, "История", x, y + 5);
-        Ui.right(g, Term.plural(history.size(), "запись", "записи", "записей"), x + w, y + 5, 11, Weight.REGULAR, t.c("text.muted"));
+        Ui.caps(g, t, tr("ui.card.history"), x, y + 5);
+        Ui.right(g, n("ui.card.entries", history.size()), x + w, y + 5, 11, Weight.REGULAR, t.c("text.muted"));
         y += 14;
         if (history.isEmpty()) {
-            Draw.label(g, "Наказаний и жалоб не было", x, y + 5, 12, Weight.REGULAR, t.c("text.muted"));
+            Draw.label(g, tr("ui.card.history.none"), x, y + 5, 12, Weight.REGULAR, t.c("text.muted"));
             y += 13;
         }
         for (Tag xh : history) {
@@ -705,7 +716,7 @@ public final class ServerScreen extends ScaledScreen {
             y += 13;
         }
         y += 8;
-        Ui.caps(g, t, "Заметки персонала", x, y + 5);
+        Ui.caps(g, t, tr("ui.card.notes"), x, y + 5);
         y += 14;
         for (Tag xn : notes) {
             CompoundTag n = (CompoundTag) xn;
@@ -721,11 +732,11 @@ public final class ServerScreen extends ScaledScreen {
         }
         if (noteOpen) {
             Ui.input(g, t, noteBox, x, y, w - 52, 16, mx, my);
-            Kit.button(g, t, hits, x + w - 48, y, 48, 16, "Сохранить", false, mx, my, () -> saveNote(id));
+            Kit.button(g, t, hits, x + w - 48, y, 48, 16, tr("ui.save"), false, mx, my, () -> saveNote(id));
             y += 22;
         } else if (HelmClient.can("ryshelm.note")) {
             Icons.draw(g, Icons.Shape.PLUS, x, y + 2, 5, t.c("link"));
-            Ui.link(g, t, hits, "Заметка", x + 7, y + 5, 12, mx, my, () -> {
+            Ui.link(g, t, hits, tr("ui.card.note"), x + 7, y + 5, 12, mx, my, () -> {
                 noteOpen = true;
                 setFocused(noteBox);
                 noteBox.setFocused(true);
@@ -755,13 +766,13 @@ public final class ServerScreen extends ScaledScreen {
         int color = h.getBoolean("revoked") ? t.c("text.dim") : active ? t.c("state.warn") : t.c("text.body");
         float cy = y + 5;
         Icons.draw(g, icon, x, cy - 3, 6, color);
-        String text = h.getString("text") + (h.getBoolean("revoked") ? " · снято" : active ? " · действует" : "");
+        String text = h.getString("text") + (h.getBoolean("revoked") ? " · " + tr("ui.card.revoked") : active ? " · " + tr("ui.card.active") : "");
         String date = Words.when(h.getLong("t"));
         float dw = Draw.labelWidth(date, 11.5f, Weight.REGULAR);
         float room = w - 10 - dw - 6;
         if (h.getBoolean("canRevoke")) {
-            float lw = Draw.labelWidth("Снять", 11.5f, Weight.MEDIUM);
-            Ui.link(g, t, hits, "Снять", x + w - dw - 6 - lw, cy, 11.5f, mx, my, () -> {
+            float lw = Draw.labelWidth(tr("ui.card.revoke"), 11.5f, Weight.MEDIUM);
+            Ui.link(g, t, hits, tr("ui.card.revoke"), x + w - dw - 6 - lw, cy, 11.5f, mx, my, () -> {
                 CompoundTag a = new CompoundTag();
                 a.putLong("id", h.getLong("id"));
                 HelmClient.action("revoke", a);
@@ -793,7 +804,7 @@ public final class ServerScreen extends ScaledScreen {
         int y = top + 4;
         if (HelmClient.can("ryshelm.cheat")) {
             // ряд оператора: значки с подсказками
-            String[][] ops = {{"heal", "HEART", "Вылечить"}, {"feed", "FORK", "Накормить"}, {"fly", "FEATHER", "Полёт"}, {"god", "SHIELD", "Бессмертие"}, {"speed", "SPEED", "Скорость ×2, ещё раз ×1"}, {"move", "MOVE", "Переставить: окажется здесь при входе"}};
+            String[][] ops = {{"heal", "HEART", tr("ui.op.heal")}, {"feed", "FORK", tr("ui.op.feed")}, {"fly", "FEATHER", tr("ui.op.fly")}, {"god", "SHIELD", tr("ui.op.god")}, {"speed", "SPEED", tr("ui.op.speed")}, {"move", "MOVE", tr("ui.op.move")}};
             int bw = (w - 5 * 3) / 6;
             for (int i = 0; i < ops.length; i++) {
                 String[] o = ops[i];
@@ -803,7 +814,7 @@ public final class ServerScreen extends ScaledScreen {
                 if (!usable) {
                     Draw.roundBox(g, bx, y, bw, 13, 4f, Draw.alpha(t.c("button.bg"), 0.5f), t.c("button.border"));
                     Icons.draw(g, HelmClient.shape(o[1]), bx + (bw - 7) / 2f, y + 3, 7, t.c("text.dim"));
-                    if (Kit.over(mx, my, bx, y, bw, 13)) tooltip = List.of(o[2], o[0].equals("move") ? "Только для игрока вне сети" : "Игрок не в сети");
+                    if (Kit.over(mx, my, bx, y, bw, 13)) tooltip = List.of(o[2], o[0].equals("move") ? tr("ui.op.offline_only") : tr("ui.op.not_online"));
                     continue;
                 }
                 boolean hot = Ui.iconButton(g, t, hits, bx, y, bw, 13, HelmClient.shape(o[1]), active, mx, my, () -> {
@@ -821,20 +832,20 @@ public final class ServerScreen extends ScaledScreen {
             }
             y += 17;
         }
-        if (online && !self) Ui.primary(g, t, hits, x, y, w, 20, Icons.Shape.TELEPORT, "К игроку", mx, my, HelmClient.can("ryshelm.tp") ? () -> HelmClient.onTarget("tp", id) : null);
-        else if (self) Ui.primary(g, t, hits, x, y, w, 20, Icons.Shape.USER, "Это вы", mx, my, null);
-        else Ui.primary(g, t, hits, x, y, w, 20, Icons.Shape.TELEPORT, "К месту, где видели", mx, my, c.contains("dim") && HelmClient.can("ryshelm.tp") ? () -> HelmClient.onTarget("tplast", id) : null);
+        if (online && !self) Ui.primary(g, t, hits, x, y, w, 20, Icons.Shape.TELEPORT, tr("ui.players.go_to"), mx, my, HelmClient.can("ryshelm.tp") ? () -> HelmClient.onTarget("tp", id) : null);
+        else if (self) Ui.primary(g, t, hits, x, y, w, 20, Icons.Shape.USER, tr("ui.card.self"), mx, my, null);
+        else Ui.primary(g, t, hits, x, y, w, 20, Icons.Shape.TELEPORT, tr("ui.card.go_seen"), mx, my, c.contains("dim") && HelmClient.can("ryshelm.tp") ? () -> HelmClient.onTarget("tplast", id) : null);
         y += 24;
         int bw = (w - 6) / 3, bh = 14;
         boolean target = online && !self;
-        Ui.button(g, t, hits, x, y, bw, bh, Icons.Shape.USERS, "Позвать", false, mx, my, target && HelmClient.can("ryshelm.tp") ? () -> HelmClient.onTarget("tphere", id) : null);
-        Ui.button(g, t, hits, x + bw + 3, y, bw, bh, Icons.Shape.EYE, "Наблюдать", false, mx, my, target && HelmClient.can("ryshelm.spectate") ? () -> HelmClient.onTarget("spectate", id) : null);
+        Ui.button(g, t, hits, x, y, bw, bh, Icons.Shape.USERS, tr("ui.players.summon"), false, mx, my, target && HelmClient.can("ryshelm.tp") ? () -> HelmClient.onTarget("tphere", id) : null);
+        Ui.button(g, t, hits, x + bw + 3, y, bw, bh, Icons.Shape.EYE, tr("ui.card.spectate"), false, mx, my, target && HelmClient.can("ryshelm.spectate") ? () -> HelmClient.onTarget("spectate", id) : null);
         boolean frozen = c.getBoolean("frozen");
-        Ui.button(g, t, hits, x + 2 * (bw + 3), y, bw, bh, Icons.Shape.SNOW, frozen ? "Разморозить" : "Заморозить", false, mx, my, target && HelmClient.can("ryshelm.freeze") ? () -> HelmClient.onTarget("freeze", id) : null);
+        Ui.button(g, t, hits, x + 2 * (bw + 3), y, bw, bh, Icons.Shape.SNOW, frozen ? tr("ui.card.unfreeze") : tr("ui.card.freeze"), false, mx, my, target && HelmClient.can("ryshelm.freeze") ? () -> HelmClient.onTarget("freeze", id) : null);
         y += bh + 3;
-        Ui.button(g, t, hits, x, y, bw, bh, Icons.Shape.CHEST, "Инвентарь", false, mx, my, target && HelmClient.can("ryshelm.invsee") ? () -> HelmClient.onTarget("invsee", id) : null);
-        Ui.button(g, t, hits, x + bw + 3, y, bw, bh, Icons.Shape.CHEST, "Сундук Края", false, mx, my, target && HelmClient.can("ryshelm.enderchest.other") ? () -> HelmClient.onTarget("ender", id) : null);
-        Ui.button(g, t, hits, x + 2 * (bw + 3), y, bw, bh, Icons.Shape.NOTE, "Заметка", false, mx, my, HelmClient.can("ryshelm.note") ? () -> {
+        Ui.button(g, t, hits, x, y, bw, bh, Icons.Shape.CHEST, tr("ui.card.inventory"), false, mx, my, target && HelmClient.can("ryshelm.invsee") ? () -> HelmClient.onTarget("invsee", id) : null);
+        Ui.button(g, t, hits, x + bw + 3, y, bw, bh, Icons.Shape.CHEST, tr("ui.card.ender"), false, mx, my, target && HelmClient.can("ryshelm.enderchest.other") ? () -> HelmClient.onTarget("ender", id) : null);
+        Ui.button(g, t, hits, x + 2 * (bw + 3), y, bw, bh, Icons.Shape.NOTE, tr("ui.card.note"), false, mx, my, HelmClient.can("ryshelm.note") ? () -> {
             noteOpen = true;
             setFocused(noteBox);
             noteBox.setFocused(true);
@@ -842,13 +853,13 @@ public final class ServerScreen extends ScaledScreen {
         y += bh + 3;
         int qw = (w - 9) / 4;
         boolean muted = c.contains("mute"), banned = c.contains("ban");
-        Ui.button(g, t, hits, x, y, qw, bh, null, "Предупредить", false, mx, my, !self && HelmClient.can("ryshelm.warn") ? () -> openPunish(Kind.WARN, id, name) : null);
-        Ui.button(g, t, hits, x + qw + 3, y, qw, bh, null, muted ? "Снять мут" : "Заглушить", false, mx, my, !self && HelmClient.can("ryshelm.mute") ? () -> {
+        Ui.button(g, t, hits, x, y, qw, bh, null, tr("ui.punish.warn"), false, mx, my, !self && HelmClient.can("ryshelm.warn") ? () -> openPunish(Kind.WARN, id, name) : null);
+        Ui.button(g, t, hits, x + qw + 3, y, qw, bh, null, muted ? tr("ui.card.unmute") : tr("ui.punish.mute"), false, mx, my, !self && HelmClient.can("ryshelm.mute") ? () -> {
             if (muted) revoke(c.getLong("mute"));
             else openPunish(Kind.MUTE, id, name);
         } : null);
-        Ui.button(g, t, hits, x + 2 * (qw + 3), y, qw, bh, null, "Выгнать", false, mx, my, target && HelmClient.can("ryshelm.kick") ? () -> openPunish(Kind.KICK, id, name) : null);
-        Ui.button(g, t, hits, x + 3 * (qw + 3), y, qw, bh, null, banned ? "Снять бан" : "Бан", true, mx, my, !self && HelmClient.can("ryshelm.ban.temp") ? () -> {
+        Ui.button(g, t, hits, x + 2 * (qw + 3), y, qw, bh, null, tr("ui.punish.kick"), false, mx, my, target && HelmClient.can("ryshelm.kick") ? () -> openPunish(Kind.KICK, id, name) : null);
+        Ui.button(g, t, hits, x + 3 * (qw + 3), y, qw, bh, null, banned ? tr("ui.card.unban") : tr("ui.card.ban"), true, mx, my, !self && HelmClient.can("ryshelm.ban.temp") ? () -> {
             if (banned) revoke(c.getLong("ban"));
             else openPunish(Kind.BAN, id, name);
         } : null);
@@ -912,32 +923,27 @@ public final class ServerScreen extends ScaledScreen {
         hits.add(x, y, w, h, b -> {});
         int ix = x + 11, iw = w - 22;
         Ui.faceTile(g, t, punishTarget, ix, y + 10, 16, false);
-        String verb = switch (kind) {
-            case WARN -> "Предупредить";
-            case MUTE -> "Заглушить";
-            case KICK -> "Выгнать";
-            case BAN -> "Бан для";
-        };
-        Draw.label(g, verb + " " + punishName, ix + 22, y + 18, 16, Weight.DISPLAY, t.c("text.primary"));
+        String title = tr("ui.punish.title." + kind.id(), punishName);
+        Draw.label(g, title, ix + 22, y + 18, 16, Weight.DISPLAY, t.c("text.primary"));
         boolean hotX = Kit.over(mx, my, x + w - 21, y + 12, 12, 12);
         Draw.cross(g, x + w - 18, y + 15, hotX ? t.c("accent") : t.c("text.muted"));
         hits.add(x + w - 21, y + 12, 12, 12, b -> closePunish());
         int cy = y + 34;
         if (timed) {
             long max = hint == null ? Term.FOREVER : hint.getLong(kind == Kind.MUTE ? "muteMax" : "banMax");
-            Ui.caps(g, t, "Срок", ix, cy + 3);
-            if (max != Term.FOREVER) Ui.right(g, "модератору до " + Term.label(max), ix + iw, cy + 3, 11, Weight.REGULAR, t.c("text.muted"));
+            Ui.caps(g, t, tr("ui.punish.term"), ix, cy + 3);
+            if (max != Term.FOREVER) Ui.right(g, tr("ui.punish.max", Tr.lang().term(max)), ix + iw, cy + 3, 11, Weight.REGULAR, t.c("text.muted"));
             cy += 10;
             long[] presets = kind == Kind.MUTE ? new long[] {10 * Term.MINUTE, Term.HOUR, Term.DAY, 7 * Term.DAY} : new long[] {Term.DAY, 3 * Term.DAY, 7 * Term.DAY, Term.FOREVER};
             int cx = ix;
             for (long p : presets) {
                 if (p > max && max != Term.FOREVER) continue;
-                cx += chip(g, cx, cy, Term.label(p), !customMode && punishTerm == p, () -> {
+                cx += chip(g, cx, cy, Tr.lang().term(p), !customMode && punishTerm == p, () -> {
                     customMode = false;
                     punishTerm = p;
                 }) + 3;
             }
-            int customW = chip(g, cx, cy, "Свой срок", customMode, () -> {
+            int customW = chip(g, cx, cy, tr("ui.punish.custom"), customMode, () -> {
                 customMode = true;
                 setFocused(customTerm);
                 customTerm.setFocused(true);
@@ -949,10 +955,10 @@ public final class ServerScreen extends ScaledScreen {
             }
             cy += 24;
         }
-        Ui.caps(g, t, "Причина", ix, cy + 3);
-        Ui.right(g, "пункт правил или свой текст", ix + iw, cy + 3, 11, Weight.REGULAR, t.c("text.muted"));
+        Ui.caps(g, t, tr("ui.punish.reason"), ix, cy + 3);
+        Ui.right(g, tr("ui.punish.reason.hint"), ix + iw, cy + 3, 11, Weight.REGULAR, t.c("text.muted"));
         cy += 10;
-        String ruleLabel = punishRule > 0 ? punishRule + ". " + ruleTitle(punishRule) : "Без пункта правил";
+        String ruleLabel = punishRule > 0 ? punishRule + ". " + ruleTitle(punishRule) : tr("ui.no_rule");
         int ddW = Kit.dropdown(g, t, hits, ruleDd, ix, cy, iw, ruleLabel, punishRule > 0, mx, my);
         if (ddW < iw) {
             // кнопка списка на всю ширину, как в макете
@@ -963,35 +969,29 @@ public final class ServerScreen extends ScaledScreen {
         cy += 19;
         Ui.input(g, t, reason, ix, cy, iw, 26, mx, my);
         cy += 32;
-        Draw.label(g, "Игрок видит причину", ix, cy + 3, 13, Weight.MEDIUM, t.c("text.primary"));
-        Draw.label(g, kind == Kind.MUTE ? "в уведомлении и при попытке написать" : kind == Kind.BAN ? "на экране входа" : "в уведомлении", ix, cy + 11.5f, 11, Weight.REGULAR, t.c("text.muted"));
+        Draw.label(g, tr("ui.punish.shown"), ix, cy + 3, 13, Weight.MEDIUM, t.c("text.primary"));
+        Draw.label(g, tr("ui.punish.shown." + (kind == Kind.MUTE ? "mute" : kind == Kind.BAN ? "ban" : "other")), ix, cy + 11.5f, 11, Weight.REGULAR, t.c("text.muted"));
         boolean hotT = Kit.over(mx, my, ix + iw - 18, cy + 2, 18, 10);
         Kit.toggle(g, t, ix + iw - 18, cy + 2, punishShown, hotT);
         hits.add(ix + iw - 18, cy + 2, 18, 10, b -> punishShown = !punishShown);
         cy += 22;
         if (hint != null) cy += Ui.callout(g, t, hint.getString("ladder"), ix, cy, iw, true) + 6;
-        String note = switch (kind) {
-            case MUTE -> "Закрывает общий чат, каналы команды и союза, /msg, /tell, /w, /me, /teammsg. Снять может тот, кто дал, и оператор.";
-            case BAN -> "Бан ложится в список игры banned-players.json: его видит /pardon. Снять может тот, кто дал, и оператор.";
-            case KICK -> "Игрок отключится с причиной и сможет зайти снова.";
-            case WARN -> "Запись в истории игрока и уведомление ему. Предупреждения считает лестница наказаний.";
-        };
+        String note = tr("ui.punish.note." + kind.id());
         cy += Ui.paragraph(g, note, ix, cy, iw, 11.5f, t.c("text.muted"), 3) + 6;
         // кнопки
         int by = y + h - 25;
         String go = switch (kind) {
-            case WARN -> "Предупредить";
-            case MUTE -> "Заглушить " + (punishTerm > 0 ? Term.onLabel(punishTerm) : "");
-            case KICK -> "Выгнать";
-            case BAN -> "Бан " + (punishTerm > 0 ? Term.onLabel(punishTerm) : "");
+            case WARN, KICK -> tr("ui.punish." + kind.id());
+            case MUTE, BAN -> tr("ui.punish.go." + kind.id(), punishTerm > 0 ? Tr.lang().termOn(punishTerm) : "");
         };
         int gw = (int) Math.ceil(Draw.labelWidth(go.strip(), 13, Weight.SEMIBOLD)) + 26;
         boolean ready = !timed || punishTerm > 0;
         Ui.primary(g, t, hits, ix + iw - gw, by, gw, 17, kind == Kind.MUTE ? Icons.Shape.MUTE : kind == Kind.BAN ? Icons.Shape.BAN : kind == Kind.KICK ? Icons.Shape.EXIT : Icons.Shape.WARN,
             go.strip(), mx, my, ready ? this::sendPunish : null);
-        float cw = Draw.labelWidth("Отмена", 12.5f, Weight.MEDIUM);
+        String cancel = tr("ui.cancel");
+        float cw = Draw.labelWidth(cancel, 12.5f, Weight.MEDIUM);
         boolean hotC = Kit.over(mx, my, (int) (ix + iw - gw - 14 - cw), by, (int) cw + 8, 17);
-        Draw.label(g, "Отмена", ix + iw - gw - 10 - cw, by + 8.5f, 12.5f, Weight.MEDIUM, hotC ? t.c("text.primary") : t.c("text.secondary"));
+        Draw.label(g, cancel, ix + iw - gw - 10 - cw, by + 8.5f, 12.5f, Weight.MEDIUM, hotC ? t.c("text.primary") : t.c("text.secondary"));
         hits.add((int) (ix + iw - gw - 14 - cw), by, (int) cw + 8, 17, b -> closePunish());
         g.pose().popPose();
         if (ruleDd.open) dropdownLists(g);
@@ -1026,9 +1026,9 @@ public final class ServerScreen extends ScaledScreen {
         CompoundTag r = View.rules;
         int x = px + 18, top = py + HEAD + 10, w = 370;
         String server = r.getString("server").isEmpty() ? HelmClient.server : r.getString("server");
-        Draw.label(g, r.getString("title").isEmpty() ? "Правила сервера" : r.getString("title"), x, top + 7, 18, Weight.DISPLAY, t.c("text.primary"));
+        Draw.label(g, r.getString("title").isEmpty() ? tr("ui.rules.title") : r.getString("title"), x, top + 7, 18, Weight.DISPLAY, t.c("text.primary"));
         long date = r.getLong("date");
-        Draw.label(g, (date > 0 ? "от " + Words.dayMonth(date) + " · " : "") + server, x, top + 19, 12, Weight.REGULAR, t.c("text.muted"));
+        Draw.label(g, (date > 0 ? tr("ui.rules.dated", Words.dayMonth(date)) + " · " : "") + server, x, top + 19, 12, Weight.REGULAR, t.c("text.muted"));
         int listTop = top + 30, listBottom = py + H - 10;
         ListTag items = r.getList("items", Tag.TAG_COMPOUND);
         int content = 0;
@@ -1037,7 +1037,7 @@ public final class ServerScreen extends ScaledScreen {
         hits.clip(listTop, listBottom);
         Draw.scissor(g, px + 1, listTop, px + SPLIT - 1, listBottom);
         int y = listTop + 6 - scroll;
-        if (items.isEmpty()) Draw.label(g, HelmClient.present ? "Правил пока нет." : "На сервере нет RYSHelm.", x, y + 5, 12.5f, Weight.REGULAR, t.c("text.muted"));
+        if (items.isEmpty()) Draw.label(g, HelmClient.present ? tr("ui.rules.none") : tr("ui.no_mod"), x, y + 5, 12.5f, Weight.REGULAR, t.c("text.muted"));
         for (Tag xi : items) {
             CompoundTag i = (CompoundTag) xi;
             Draw.label(g, Integer.toString(i.getInt("n")), x, y + 4, 13, Weight.SEMIBOLD, t.c("text.primary"));
@@ -1056,19 +1056,19 @@ public final class ServerScreen extends ScaledScreen {
         Draw.round(g, px + SPLIT, py + HEAD, 0.5f, H - HEAD - 1, 0.02f, t.c("panel.border"));
         int sx = px + SPLIT + 9, sw = W - SPLIT - 18, sy = top;
         if (r.getBoolean("pending")) {
-            Draw.label(g, "Правила не приняты", sx, sy + 7, 16, Weight.DISPLAY, t.c("state.warn"));
-            int h = Ui.paragraph(g, "Пока правила не приняты, можно ходить и читать чат. Строить, открывать, писать и телепортироваться нельзя.", sx, sy + 18, sw, 12.5f, t.c("text.body"), 5);
-            Ui.primary(g, t, hits, sx, sy + 26 + h, sw, 20, Icons.Shape.CHECK, "Принимаю", mx, my, () -> HelmClient.action("rules_accept"));
+            Draw.label(g, tr("ui.rules.pending"), sx, sy + 7, 16, Weight.DISPLAY, t.c("state.warn"));
+            int h = Ui.paragraph(g, tr("ui.rules.pending.text"), sx, sy + 18, sw, 12.5f, t.c("text.body"), 5);
+            Ui.primary(g, t, hits, sx, sy + 26 + h, sw, 20, Icons.Shape.CHECK, tr("ui.rules.accept"), mx, my, () -> HelmClient.action("rules_accept"));
         } else if (r.contains("accepted")) {
-            Draw.label(g, "Вы приняли правила", sx, sy + 7, 16, Weight.DISPLAY, t.c("text.primary"));
-            Draw.label(g, Words.dayMonth(r.getLong("accepted")) + " в " + Words.time(r.getLong("accepted")), sx, sy + 19, 12, Weight.REGULAR, t.c("text.muted"));
+            Draw.label(g, tr("ui.rules.accepted"), sx, sy + 7, 16, Weight.DISPLAY, t.c("text.primary"));
+            Draw.label(g, tr("ui.rules.accepted.at", Words.dayMonth(r.getLong("accepted")), Words.time(r.getLong("accepted"))), sx, sy + 19, 12, Weight.REGULAR, t.c("text.muted"));
         } else {
-            Draw.label(g, "Правила сервера", sx, sy + 7, 16, Weight.DISPLAY, t.c("text.primary"));
-            Draw.label(g, r.getBoolean("onJoin") ? "окно при входе включено" : "окно при входе выключено", sx, sy + 19, 12, Weight.REGULAR, t.c("text.muted"));
+            Draw.label(g, tr("ui.rules.title"), sx, sy + 7, 16, Weight.DISPLAY, t.c("text.primary"));
+            Draw.label(g, r.getBoolean("onJoin") ? tr("ui.rules.on_join.on") : tr("ui.rules.on_join.off"), sx, sy + 19, 12, Weight.REGULAR, t.c("text.muted"));
         }
         int cy = sy + 70;
-        String info = "Номера пунктов те же, что в жалобах и наказаниях.";
-        if (HelmClient.can("ryshelm.admin")) info += " Текст лежит в config/ryshelm/rules.md: после правки /rys admin reload, и все примут правила заново.";
+        String info = tr("ui.rules.info");
+        if (HelmClient.can("ryshelm.admin")) info += " " + tr("ui.rules.info.admin");
         Ui.callout(g, t, info, sx, cy, sw, false);
     }
 
@@ -1078,7 +1078,7 @@ public final class ServerScreen extends ScaledScreen {
         CompoundTag j = View.journal;
         int left = px + 10, top = py + HEAD, listW = 422;
         int[] counts = j.getIntArray("counts");
-        String[][] cats = {{"", "Все"}, {"PUNISH", "Наказания"}, {"WATCH", "Инвентарь и наблюдение"}, {"PLACES", "Места"}, {"ROLES", "Роли и настройки"}, {"REPORTS", "Жалобы"}};
+        String[][] cats = {{"", tr("ui.filter.all")}, {"PUNISH", tr("ui.journal.cat.punish")}, {"WATCH", tr("ui.journal.cat.watch")}, {"PLACES", tr("ui.journal.cat.places")}, {"ROLES", tr("ui.journal.cat.roles")}, {"REPORTS", tr("ui.tab.reports")}};
         int x = left, fy = top + 9;
         for (int i = 0; i < cats.length; i++) {
             String[] c = cats[i];
@@ -1104,7 +1104,7 @@ public final class ServerScreen extends ScaledScreen {
         hits.clip(listTop, listTop + boxH);
         Draw.scissor(g, left + 1, listTop + 1, left + listW - 1, listTop + boxH - 1);
         int y = listTop - scroll;
-        if (shown.isEmpty()) Draw.label(g, "Записей нет.", left + 6, listTop + 9.5f, 12.5f, Weight.REGULAR, t.c("text.muted"));
+        if (shown.isEmpty()) Draw.label(g, tr("ui.journal.none"), left + 6, listTop + 9.5f, 12.5f, Weight.REGULAR, t.c("text.muted"));
         for (int i = 0; i < shown.size(); i++) {
             if (y + rowH >= listTop && y <= listTop + boxH) entry(g, shown.get(i), left, y, listW, rowH, i > 0);
             y += rowH;
@@ -1113,20 +1113,20 @@ public final class ServerScreen extends ScaledScreen {
         hits.unclip();
         // справа отбор и хранение
         int sx = px + 444, sw = W - 444 - 10;
-        Ui.caps(g, t, "Отбор", sx, top + 13);
+        Ui.caps(g, t, tr("ui.journal.filter"), sx, top + 13);
         Ui.input(g, t, who, sx, top + 22, sw, 16, mx, my);
         if (who.getValue().isEmpty() && !who.isFocused()) Icons.draw(g, Icons.Shape.USER, sx + 4, top + 27, 6, t.c("text.muted"));
-        Draw.label(g, "За", sx, top + 53, 13, Weight.MEDIUM, t.c("text.primary"));
-        String days = journalDays == 0 ? "всё время" : Term.plural(journalDays, "день", "дня", "дней");
+        Draw.label(g, tr("ui.journal.period"), sx, top + 53, 13, Weight.MEDIUM, t.c("text.primary"));
+        String days = journalDays == 0 ? tr("ui.all_time") : n("term.days", journalDays);
         Kit.dropdown(g, t, hits, daysDd, sx + sw - 65, top + 46, 65, days, journalDays != 7, mx, my);
-        Ui.caps(g, t, "Хранение", sx, top + 71);
-        Draw.label(g, "Журнал хранит", sx, top + 89, 13, Weight.MEDIUM, t.c("text.primary"));
+        Ui.caps(g, t, tr("ui.journal.keep"), sx, top + 71);
+        Draw.label(g, tr("ui.journal.keeps"), sx, top + 89, 13, Weight.MEDIUM, t.c("text.primary"));
         int keep = HelmClient.PENDING.value("s.journalDays", j.getInt("keep"));
-        String keepText = Term.plural(keep, "день", "дня", "дней");
+        String keepText = n("term.days", keep);
         if (HelmClient.can("ryshelm.admin")) Kit.dropdown(g, t, hits, keepDd, sx + sw - 65, top + 82, 65, keepText, false, mx, my);
         else Ui.right(g, keepText, sx + sw, top + 89, 12.5f, Weight.REGULAR, t.c("text.secondary"));
         String month = java.time.YearMonth.now().toString();
-        Ui.callout(g, t, "Журнал видят модераторы и операторы. Из окна запись не удаляется. Файлы по месяцам: world/ryshelm/journal-" + month + ".jsonl.", sx, top + 102, sw, false);
+        Ui.callout(g, t, tr("ui.journal.info", month), sx, top + 102, sw, false);
     }
 
     private void entry(GuiGraphics g, CompoundTag e, int x, int y, int w, int h, boolean divider) {
@@ -1157,40 +1157,26 @@ public final class ServerScreen extends ScaledScreen {
     static List<String[]> line(CompoundTag e) {
         String type = e.getString("type"), a = e.getString("a"), p = e.getString("p"), d = e.getString("d");
         List<String[]> out = new ArrayList<>();
+        // строки журнала на диске по-русски (журнал не меняется): известные слова поля d переводятся здесь
         switch (type) {
-            case "report" -> {
-                out.add(new String[] {"Жалоба ", ""});
-                out.add(new String[] {a, "b"});
-                out.add(new String[] {" на ", ""});
-                out.add(new String[] {p, "b"});
-            }
-            case "join_banned" -> {
-                out.add(new String[] {p, "b"});
-                out.add(new String[] {" вошёл, прошлый бан закончился " + d, ""});
-            }
+            case "report" -> segs(out, tr("journal.line.report"), a, p, d, false);
+            case "join_banned" -> segs(out, tr("journal.line.join_banned"), a, p, d, false);
             case "fly", "god" -> {
-                out.add(new String[] {a, "b"});
-                out.add(new String[] {" " + (d.isEmpty() ? "переключил" : d) + (p.isEmpty() ? " себе" : " игроку ") , ""});
-                if (!p.isEmpty()) out.add(new String[] {p, "b"});
-                out.add(new String[] {type.equals("fly") ? " полёт" : " бессмертие", ""});
+                String verb = tr("journal.toggle." + (d.equals(Journal.D_ON) ? "on" : d.equals(Journal.D_OFF) ? "off" : "switch"));
+                String what = tr("journal.toggle." + type);
+                segs(out, Lang.format(tr(p.isEmpty() ? "journal.line.toggle.self" : "journal.line.toggle.other"), "%1$s", "%2$s", verb, what), a, p, d, false);
             }
-            case "kit_create", "kit_delete" -> {
-                out.add(new String[] {a, "b"});
-                out.add(new String[] {" " + Words.verb(type) + " ", ""});
-                out.add(new String[] {d, "b"});
-            }
-            case "kit_give" -> {
-                out.add(new String[] {a, "b"});
-                out.add(new String[] {" выдал набор " + d + " ", ""});
-                out.add(new String[] {p, "b"});
-            }
+            case "kit_create", "kit_delete" -> segs(out, tr("journal.line." + type), a, p, d, true);
+            case "kit_give" -> segs(out, tr("journal.line.kit_give"), a, p, d, false);
             case "whitelist" -> {
-                out.add(new String[] {a, "b"});
-                if (p.isEmpty()) out.add(new String[] {" " + d + " белый список", ""});
-                else {
-                    out.add(new String[] {" " + d + (d.equals("убрал") ? " из белого списка " : " в белый список "), ""});
-                    out.add(new String[] {p, "b"});
-                }
+                String k = switch (d) {
+                    case Journal.WL_ON -> "on";
+                    case Journal.WL_OFF -> "off";
+                    case Journal.WL_ADD -> "add";
+                    case Journal.WL_REMOVE -> "remove";
+                    default -> "other";
+                };
+                segs(out, tr("journal.line.whitelist." + k), a, p, d, false);
             }
             case "settings", "perm", "caps", "afk_kick" -> {
                 out.add(new String[] {a, "b"});
@@ -1206,6 +1192,25 @@ public final class ServerScreen extends ScaledScreen {
         return out;
     }
 
+    /**
+     * Строка журнала по шаблону: {@code %1$s} кто (жирным), {@code %2$s} кого (жирным), {@code %3$s} продолжение
+     * (жирным, если {@code boldDetail}).
+     */
+    static void segs(List<String[]> out, String template, String a, String p, String d, boolean boldDetail) {
+        java.util.regex.Matcher m = java.util.regex.Pattern.compile("%(\\d)\\$s").matcher(template);
+        int last = 0;
+        while (m.find()) {
+            if (m.start() > last) out.add(new String[] {template.substring(last, m.start()), ""});
+            switch (m.group(1)) {
+                case "1" -> out.add(new String[] {a, "b"});
+                case "2" -> out.add(new String[] {p, "b"});
+                default -> out.add(new String[] {d, boldDetail ? "b" : ""});
+            }
+            last = m.end();
+        }
+        if (last < template.length()) out.add(new String[] {template.substring(last), ""});
+    }
+
     // ---- роли (макет 11) ----
 
     private void roles(GuiGraphics g) {
@@ -1214,8 +1219,8 @@ public final class ServerScreen extends ScaledScreen {
         int left = px + 10, top = py + HEAD;
         // модераторы
         int y = top + 9;
-        Draw.label(g, "Модераторы", left, y + 7, 12.5f, Weight.REGULAR, t.c("text.muted"));
-        int x = left + (int) Draw.labelWidth("Модераторы", 12.5f, Weight.REGULAR) + 6;
+        Draw.label(g, tr("ui.roles.moderators"), left, y + 7, 12.5f, Weight.REGULAR, t.c("text.muted"));
+        int x = left + (int) Draw.labelWidth(tr("ui.roles.moderators"), 12.5f, Weight.REGULAR) + 6;
         for (Tag xm : r.getList("moderators", Tag.TAG_COMPOUND)) {
             CompoundTag m = (CompoundTag) xm;
             String name = m.getString("name");
@@ -1235,12 +1240,12 @@ public final class ServerScreen extends ScaledScreen {
             x += cw + 4;
         }
         if (edit) {
-            int aw = (int) Draw.labelWidth("Добавить", 12.5f, Weight.MEDIUM) + 20;
+            int aw = (int) Draw.labelWidth(tr("ui.add"), 12.5f, Weight.MEDIUM) + 20;
             boolean hot = Kit.over(mx, my, x, y, aw, 14);
             Draw.roundBox(g, x, y, aw, 14, 4f, hot ? Draw.mix(t.c("button.bg"), t.c("text.primary"), 0.08f) : t.c("button.bg"), t.c("button.border"));
             if (HelmClient.PENDING.spinning("mod.add")) Kit.spinner(g, x + 7.5f, y + 7, 2.5f, t.c("button.fg"));
             else Icons.draw(g, Icons.Shape.PLUS, x + 5, y + 4.5f, 5, t.c("button.fg"));
-            Draw.label(g, "Добавить", x + 13, y + 7, 12.5f, Weight.MEDIUM, t.c("button.fg"));
+            Draw.label(g, tr("ui.add"), x + 13, y + 7, 12.5f, Weight.MEDIUM, t.c("button.fg"));
             hits.add(x, y, aw, 14, b -> addModDd.open = !addModDd.open);
             // список кандидатов встаёт под кнопкой
             Kit.dropdown(g, t, hits, addModDd, x, y + 16, 0, "", false, -1000, -1000);
@@ -1248,7 +1253,7 @@ public final class ServerScreen extends ScaledScreen {
         }
         List<String> ops = new ArrayList<>();
         for (Tag o : r.getList("operators", Tag.TAG_STRING)) ops.add(o.getAsString());
-        Draw.label(g, Draw.ellipsize("Операторы: " + (ops.isEmpty() ? "нет" : String.join(", ", ops)) + " · уровень оператора игры", px + W - 10 - x, 12, Weight.REGULAR),
+        Draw.label(g, Draw.ellipsize(tr("ui.roles.operators", ops.isEmpty() ? tr("ui.roles.operators.none") : String.join(", ", ops)), px + W - 10 - x, 12, Weight.REGULAR),
             x, y + 7, 12, Weight.REGULAR, t.c("text.muted"));
         // таблицы
         List<CompoundTag> mod = new ArrayList<>(), other = new ArrayList<>();
@@ -1264,14 +1269,13 @@ public final class ServerScreen extends ScaledScreen {
         hits.clip(tableTop, bottom);
         Draw.scissor(g, px + 1, tableTop, px + W - 1, bottom);
         int ty = tableTop - scroll;
-        table(g, "Модерация", mod, left, ty, 321, new int[] {147, 88, 29}, edit && !lp, mods, ops.size(), step, r);
+        table(g, tr("ui.roles.table.moderation"), mod, left, ty, 321, new int[] {147, 88, 29}, edit && !lp, mods, ops.size(), step, r);
         int rx = px + 340;
-        int endY = table(g, "Места, приват, оператор", other, rx, ty, W - 350, new int[] {105, 63, 21}, edit && !lp, mods, ops.size(), step, r);
+        int endY = table(g, tr("ui.roles.table.other"), other, rx, ty, W - 350, new int[] {105, 63, 21}, edit && !lp, mods, ops.size(), step, r);
         int iy = endY + 8;
-        String info = lp ? "На сервере стоит LuckPerms: права решает он. Таблица показывает узлы и наше умолчание, клик по узлу копирует его имя. Узел, который в LuckPerms не задан, решает умолчание таблицы."
-            : "LuckPerms на сервере нет: права решает эта таблица. Поставите LuckPerms, он станет главным, а таблица покажет узлы, которые туда переписать. Моды семьи добавляют сюда свои строки сами.";
+        String info = tr(lp ? "ui.roles.info.luckperms" : "ui.roles.info.table");
         iy += Ui.callout(g, t, info, rx, iy, W - 350, false) + 6;
-        Ui.callout(g, t, "Столбец оператора не меняется: оператор может всё. Модератору уровень оператора игры не нужен.", rx, iy, W - 350, false);
+        Ui.callout(g, t, tr("ui.roles.info.operator"), rx, iy, W - 350, false);
         g.disableScissor();
         hits.unclip();
     }
@@ -1280,9 +1284,9 @@ public final class ServerScreen extends ScaledScreen {
     private int table(GuiGraphics g, String title, List<CompoundTag> nodes, int x, int y, int w, int[] cols, boolean edit, int mods, int ops, int step, CompoundTag r) {
         int c1 = x + w - cols[0], c2 = x + w - cols[1], c3 = x + w - cols[2];
         Ui.caps(g, t, title, x + 2, y + 9);
-        column(g, "Игрок", "все", c1, y);
-        column(g, "Модератор", Term.plural(mods, "игрок", "игрока", "игроков"), c2, y);
-        column(g, "Оператор", Term.plural(Math.max(ops, 1), "игрок", "игрока", "игроков"), c3, y);
+        column(g, tr("ui.col.player"), tr("ui.roles.everyone"), c1, y);
+        column(g, tr("ui.roles.col.moderator"), n("ui.roles.players", mods), c2, y);
+        column(g, tr("ui.roles.col.operator"), n("ui.roles.players", Math.max(ops, 1)), c3, y);
         int ry = y + 20;
         Draw.round(g, c3 - 18, ry, 36, nodes.size() * step, 0.02f, Draw.alpha(t.c("filter.active.bg"), 0.45f));
         for (CompoundTag n : nodes) {
@@ -1295,7 +1299,7 @@ public final class ServerScreen extends ScaledScreen {
             Draw.label(g, Draw.ellipsize(label, room, 12.5f, Weight.MEDIUM), x + 14, ry + 6, 12.5f, Weight.MEDIUM, t.c("text.primary"));
             Draw.label(g, id, x + 14, ry + 13.5f, 10, Weight.REGULAR, t.c("text.muted"));
             if (r.getBoolean("luckperms") && Kit.over(mx, my, x + 14, ry + 9, (int) Draw.labelWidth(id, 10, Weight.REGULAR), 7)) {
-                tooltip = List.of("Клик копирует узел: " + id);
+                tooltip = List.of(tr("ui.roles.copy", id));
                 hits.add(x + 14, ry + 9, (int) Draw.labelWidth(id, 10, Weight.REGULAR), 7, b -> Minecraft.getInstance().keyboardHandler.setClipboard(id));
             }
             cell(g, n, "player", c1, ry, edit);
@@ -1306,7 +1310,7 @@ public final class ServerScreen extends ScaledScreen {
                 boolean mute = id.equals("ryshelm.mute");
                 String capKey = mute ? "caps.mute" : "caps.ban";
                 long cap = HelmClient.PENDING.value(capKey, r.getLong(mute ? "muteMax" : "banMax"));
-                String text = "до " + Term.label(cap);
+                String text = tr("ui.roles.cap", Tr.lang().term(cap));
                 float tw = Draw.labelWidth(text, 10, Weight.REGULAR);
                 int tx = c2 + 7;
                 boolean hot = edit && Kit.over(mx, my, tx, ry + 2, (int) tw + 6, 12);
@@ -1322,7 +1326,7 @@ public final class ServerScreen extends ScaledScreen {
                         a.putLong(mute ? "mute" : "ban", nextCap);
                         HelmClient.ask(capKey, nextCap, "caps", a);
                     });
-                    if (hot) tooltip = List.of("Потолок модератора: клик меняет");
+                    if (hot) tooltip = List.of(tr("ui.roles.cap.tip"));
                 }
             }
             ry += step;
@@ -1390,34 +1394,34 @@ public final class ServerScreen extends ScaledScreen {
         hits.clip(top, bottom);
         Draw.scissor(g, px + 1, top, px + SPLIT - 1, bottom);
         int y = top + 8 - scroll;
-        Ui.caps(g, t, "Публичный вход", x, y + 3);
+        Ui.caps(g, t, tr("ui.set.public"), x, y + 3);
         y += 12;
-        y = toggleRow(g, x, y, w, "Правила при входе", "окно при первом входе и после правки правил · " + s.getString("rulesFile") + " · " + Term.plural(s.getInt("rulesCount"), "пункт", "пункта", "пунктов"),
+        y = toggleRow(g, x, y, w, tr("ui.set.rules"), tr("ui.set.rules.sub", s.getString("rulesFile"), n("ui.set.rules.items", s.getInt("rulesCount"))),
             s.getBoolean("rulesOnJoin"), "s.rulesOnJoin", v -> set("rulesOnJoin", v));
-        y = stepperRow(g, x, y, w, "Новичок, часов игры", "нельзя звать к себе кроме своей команды; 0 выключено", s.getInt("newbieHours"), 0, 100, 1, "newbieHours");
-        y = fieldRow(g, x, y, w, "Приветствие", welcome, "welcome");
-        y = fieldRow(g, x, y, w, "Имя сервера", serverName, "serverName");
+        y = stepperRow(g, x, y, w, tr("ui.set.newbie"), tr("ui.set.newbie.sub"), s.getInt("newbieHours"), 0, 100, 1, "newbieHours");
+        y = fieldRow(g, x, y, w, tr("ui.set.welcome"), welcome, "welcome");
+        y = fieldRow(g, x, y, w, tr("ui.set.server_name"), serverName, "serverName");
         y = whitelist(g, s, x, y, w);
         y += 6;
-        Ui.caps(g, t, "Наказания и жалобы", x, y + 3);
+        Ui.caps(g, t, tr("ui.set.punish"), x, y + 3);
         y += 12;
-        y = fieldRow(g, x, y, w, "Лестница", ladder, "ladder");
-        y = stepperRow(g, x, y, w, "Лестница считает, дней", "наказания старше не считаются", s.getInt("ladderDays"), 1, 365, 5, "ladderDays");
-        y = stepperRow(g, x, y, w, "Пауза между жалобами, с", "одного игрока", s.getInt("reportCooldown"), 0, 3600, 30, "reportCooldown");
-        y = toggleRow(g, x, y, w, "Антиспам чата", "не больше " + s.getInt("spamMessages") + " строк за " + s.getInt("spamSeconds") + " с, повтор 3 раза; персонал не проверяется",
+        y = fieldRow(g, x, y, w, tr("ui.set.ladder"), ladder, "ladder");
+        y = stepperRow(g, x, y, w, tr("ui.set.ladder_days"), tr("ui.set.ladder_days.sub"), s.getInt("ladderDays"), 1, 365, 5, "ladderDays");
+        y = stepperRow(g, x, y, w, tr("ui.set.report_cooldown"), tr("ui.set.report_cooldown.sub"), s.getInt("reportCooldown"), 0, 3600, 30, "reportCooldown");
+        y = toggleRow(g, x, y, w, tr("ui.set.spam"), tr("ui.set.spam.sub", s.getInt("spamMessages"), s.getInt("spamSeconds")),
             s.getBoolean("antiSpam"), "s.antiSpam", v -> set("antiSpam", v));
         if (HelmClient.PENDING.value("s.antiSpam", s.getBoolean("antiSpam")))
-            y = stepperRow(g, x, y, w, "Антиспам глушит, мин", "после трёх отказов за 2 минуты; 0 только отказывать", s.getInt("spamMuteMinutes"), 0, 120, 5, "spamMuteMinutes");
+            y = stepperRow(g, x, y, w, tr("ui.set.spam_mute"), tr("ui.set.spam_mute.sub"), s.getInt("spamMuteMinutes"), 0, 120, 5, "spamMuteMinutes");
         y = extraRows(g, s, x, y, w);
-        y = stepperRow(g, x, y, w, "Журнал хранит, дней", "старые месяцы уходят при запуске сервера", s.getInt("journalDays"), 7, 3650, 30, "journalDays");
+        y = stepperRow(g, x, y, w, tr("ui.set.journal_days"), tr("ui.set.journal_days.sub"), s.getInt("journalDays"), 7, 3650, 30, "journalDays");
         settingsHeight = y + scroll - top + 4;
         g.disableScissor();
         hits.unclip();
         Draw.round(g, px + SPLIT, py + HEAD, 0.5f, H - HEAD - 1, 0.02f, t.c("panel.border"));
         // правая колонка: врезки и наборы друг под другом, по своей высоте, без постоянных мест
         int sx = px + SPLIT + 9, sw = W - SPLIT - 18, sy = py + HEAD + 12;
-        sy += Ui.callout(g, t, "Настройки лежат в world/serverconfig/ryshelm-server.json. Каждая правка ложится в журнал. Потолки сроков модератора меняются во вкладке «Роли».", sx, sy, sw, false) + 8;
-        sy += Ui.callout(g, t, "Лестница: шаги через запятую, например warn, mute 1h, ban 1d, ban 7d, ban perm. Окно наказания подсказывает следующий шаг по числу наказаний игрока.", sx, sy, sw, false) + 16;
+        sy += Ui.callout(g, t, tr("ui.set.info"), sx, sy, sw, false) + 8;
+        sy += Ui.callout(g, t, tr("ui.set.ladder.info"), sx, sy, sw, false) + 16;
         kits(g, s, sx, sy, sw);
     }
 
@@ -1426,15 +1430,15 @@ public final class ServerScreen extends ScaledScreen {
 
     /** Ряды настроек следующих разделов (простой). */
     private int extraRows(GuiGraphics g, CompoundTag s, int x, int y, int w) {
-        y = stepperRow(g, x, y, w, "«Отошёл» через, мин", "без движения, чата и команд; 0 выключено; /rys afk сразу", s.getInt("afkMinutes"), 0, 120, 1, "afkMinutes");
-        y = stepperRow(g, x, y, w, "Выход по простою, мин", "персонал не выходит; 0 выключено", s.getInt("idleKickMinutes"), 0, 600, 15, "idleKickMinutes");
+        y = stepperRow(g, x, y, w, tr("ui.set.afk"), tr("ui.set.afk.sub"), s.getInt("afkMinutes"), 0, 120, 1, "afkMinutes");
+        y = stepperRow(g, x, y, w, tr("ui.set.idle_kick"), tr("ui.set.idle_kick.sub"), s.getInt("idleKickMinutes"), 0, 600, 15, "idleKickMinutes");
         return y;
     }
 
     /** Белый список (план 9): тот же список игры, что у /whitelist. */
     private int whitelist(GuiGraphics g, CompoundTag s, int x, int y, int w) {
         boolean on = HelmClient.PENDING.value("wl.on", s.getBoolean("whitelist"));
-        y = toggleRow(g, x, y, w, "Белый список", on ? "заходят только игроки из списка; включивший попадает в него сам" : "выключен: зайти может любой", s.getBoolean("whitelist"), "wl.on", v -> {
+        y = toggleRow(g, x, y, w, tr("ui.set.whitelist"), on ? tr("ui.set.whitelist.on") : tr("ui.set.whitelist.off"), s.getBoolean("whitelist"), "wl.on", v -> {
             CompoundTag a = new CompoundTag();
             a.putBoolean("on", v);
             HelmClient.ask("wl.on", v, "whitelist", a);
@@ -1462,7 +1466,7 @@ public final class ServerScreen extends ScaledScreen {
         }
         y += 19;
         Ui.input(g, t, wlName, x, y, w - 72, 16, mx, my);
-        Kit.button(g, t, hits, x + w - 68, y, 68, 16, "Добавить", false, HelmClient.PENDING.spinning("wl.add"), mx, my, this::addWhitelist);
+        Kit.button(g, t, hits, x + w - 68, y, 68, 16, tr("ui.add"), false, HelmClient.PENDING.spinning("wl.add"), mx, my, this::addWhitelist);
         return y + 22;
     }
 
@@ -1480,12 +1484,12 @@ public final class ServerScreen extends ScaledScreen {
 
     /** Наборы (план 9): список, стартовый набор кликом. Собирает оператор командой из своего инвентаря. */
     private void kits(GuiGraphics g, CompoundTag s, int x, int y, int w) {
-        Ui.caps(g, t, "Наборы", x, y + 3);
+        Ui.caps(g, t, tr("ui.set.kits"), x, y + 3);
         String starter = HelmClient.PENDING.value("kit.starter", s.getString("starterKit"));
         ListTag kits = s.getList("kits", Tag.TAG_COMPOUND);
         y += 10;
         if (kits.isEmpty()) {
-            Ui.paragraph(g, "Наборов нет. Соберите из своего инвентаря: /rys admin kits create start once", x, y, w, 11.5f, t.c("text.muted"), 3);
+            Ui.paragraph(g, tr("ui.set.kits.none"), x, y, w, 11.5f, t.c("text.muted"), 3);
             return;
         }
         for (Tag xk : kits) {
@@ -1498,10 +1502,10 @@ public final class ServerScreen extends ScaledScreen {
                 HelmClient.ask("kit.starter", on ? "" : name, "kit_starter", a);
             });
             Draw.label(g, name, x + 11, y + 5.5f, 12.5f, Weight.MEDIUM, t.c("text.primary"));
-            Ui.right(g, Term.plural(k.getInt("items"), "предмет", "предмета", "предметов") + " · " + k.getString("rule"), x + w, y + 5.5f, 11, Weight.REGULAR, t.c("text.muted"));
+            Ui.right(g, n("ui.set.kits.items", k.getInt("items")) + " · " + k.getString("rule"), x + w, y + 5.5f, 11, Weight.REGULAR, t.c("text.muted"));
             y += 12;
         }
-        Draw.label(g, starter.isEmpty() ? "стартовый набор выключен" : "стартовый: «" + starter + "», при первом входе", x, y + 5, 11, Weight.REGULAR, t.c("text.muted"));
+        Draw.label(g, starter.isEmpty() ? tr("ui.set.kits.starter.off") : tr("ui.set.kits.starter", starter), x, y + 5, 11, Weight.REGULAR, t.c("text.muted"));
     }
 
     interface BoolSet {
@@ -1537,7 +1541,7 @@ public final class ServerScreen extends ScaledScreen {
         syncField(f, key);
         Draw.label(g, title, x, y + 8, 13, Weight.MEDIUM, t.c("text.primary"));
         Ui.input(g, t, f, x + 110, y, w - 110 - 58, 16, mx, my);
-        Kit.button(g, t, hits, x + w - 54, y, 54, 16, "Сохранить", false, HelmClient.PENDING.spinning("s." + key), mx, my, () -> {
+        Kit.button(g, t, hits, x + w - 54, y, 54, 16, tr("ui.save"), false, HelmClient.PENDING.spinning("s." + key), mx, my, () -> {
             String v = f.getValue().strip();
             saved.put(key, v);
             CompoundTag a = new CompoundTag();

@@ -141,27 +141,31 @@ public final class Ladder {
      * предупреждение.»
      */
     public String describe(String name, Collection<Past> history, long now) {
+        return describe(Lang.ru(), name, history, now);
+    }
+
+    /** То же на языке {@code lang}. */
+    public String describe(Lang lang, String name, Collection<Past> history, long now) {
         Hint h = next(history, now);
         StringBuilder b = new StringBuilder();
         if (h.count() == 0) {
-            b.append("Наказаний за ").append(Term.label(window)).append(" нет. Первый шаг по правилам сервера: ").append(h.next().label()).append('.');
+            b.append(lang.t("ryshelm.ladder.none", lang.term(window), lang.step(h.next())));
         } else {
             long days = Math.max(1, (now - h.since() + Term.DAY - 1) / Term.DAY);
-            b.append("У ").append(name).append(' ').append(summary(h)).append(" за ").append(Term.plural(days, "день", "дня", "дней"))
-                .append(". Следующий шаг по правилам сервера: ").append(h.next().label()).append('.');
+            b.append(lang.t("ryshelm.ladder.had", name, summary(lang, h), lang.n("ryshelm.term.days", days), lang.step(h.next())));
         }
-        if (h.after() != null) b.append(" Дальше по лестнице: ").append(h.after().label()).append('.');
+        if (h.after() != null) b.append(' ').append(lang.t("ryshelm.ladder.after", lang.step(h.after())));
         return b.toString();
     }
 
     /** «1 предупреждение», «2 наказания», «1 предупреждение и 1 наказание». */
-    static String summary(Hint h) {
+    static String summary(Lang lang, Hint h) {
         int other = h.count() - h.warnings();
-        String w = h.warnings() > 0 ? Term.plural(h.warnings(), "предупреждение", "предупреждения", "предупреждений") : "";
-        String o = other > 0 ? Term.plural(other, "наказание", "наказания", "наказаний") : "";
+        String w = h.warnings() > 0 ? lang.n("ryshelm.ladder.warnings", h.warnings()) : "";
+        String o = other > 0 ? lang.n("ryshelm.ladder.punishments", other) : "";
         if (w.isEmpty()) return o;
         if (o.isEmpty()) return w;
-        return w + " и " + o;
+        return lang.t("ryshelm.ladder.and", w, o);
     }
 
     @Override

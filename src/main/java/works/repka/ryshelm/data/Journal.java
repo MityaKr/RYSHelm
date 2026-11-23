@@ -32,6 +32,11 @@ public final class Journal {
     public static final int KEEP = 20_000;
     private static final Gson GSON = new GsonBuilder().disableHtmlEscaping().create();
 
+    /**
+     * Слова поля {@code d}, по которым окно строит строку на языке игрока: записи на диске по-русски и не меняются.
+     */
+    public static final String D_ON = "включил", D_OFF = "выключил", WL_ON = "включён", WL_OFF = "выключен", WL_ADD = "добавил", WL_REMOVE = "убрал";
+
     /** Раздел фильтра окна (макет 12). */
     public enum Category { PUNISH, WATCH, PLACES, ROLES, REPORTS, OTHER }
 

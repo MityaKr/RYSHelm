@@ -124,16 +124,16 @@ public final class Sync {
         int bar = mail.indexOf('|');
         String kind = bar < 0 ? "info" : mail.substring(0, bar), text = bar < 0 ? mail : mail.substring(bar + 1);
         switch (kind) {
-            case "warn" -> notice(p, "warn", "card", "WARN", "Предупреждение от модератора", text, true);
+            case "warn" -> notice(p, "warn", "card", "WARN", Texts.t(p, "msg.mail.warn"), text, true);
             case "mute" -> {
-                notice(p, "mute", "card", "MUTE", "Вас заглушили", text, true);
+                notice(p, "mute", "card", "MUTE", Texts.t(p, "msg.mail.mute"), text, true);
                 hello(p);
             }
             case "unmute" -> {
-                notice(p, "mute", "row", "MUTE", "Заглушение снято", "", false);
+                notice(p, "mute", "row", "MUTE", Texts.t(p, "msg.mail.unmute"), "", false);
                 hello(p);
             }
-            case "report" -> notice(p, "report_done", "row", "FLAG", "Жалоба рассмотрена", text, false);
+            case "report" -> notice(p, "report_done", "row", "FLAG", Texts.t(p, "msg.mail.report"), text, false);
             default -> notice(p, "info", "row", "INFO", text, "", false);
         }
     }

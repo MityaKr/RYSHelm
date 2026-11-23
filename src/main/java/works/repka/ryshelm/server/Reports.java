@@ -8,6 +8,7 @@ import net.minecraft.server.level.ServerPlayer;
 import org.jetbrains.annotations.Nullable;
 import works.repka.ryshelm.HelmPerms;
 import works.repka.ryshelm.data.HelmData;
+import works.repka.ryshelm.logic.Lang;
 import works.repka.ryshelm.logic.Term;
 
 /**
@@ -37,20 +38,29 @@ public final class Reports {
         };
     }
 
+    /** То же для окна, на языке зрителя (журнал хранит русское). */
+    static String stateLabel(Lang lang, HelmData.Report r) {
+        return switch (r.state) {
+            case NEW -> lang.t("ryshelm.msg.report.state.new");
+            case TAKEN -> lang.t("ryshelm.msg.report.state.taken", r.takenByName);
+            case CLOSED -> lang.t("punished".equals(r.outcome) ? "ryshelm.msg.report.state.punished" : "ryshelm.msg.report.state.rejected");
+        };
+    }
+
     public static @Nullable String create(ServerPlayer from, UUID target, int rule, String text) {
         MinecraftServer server = from.server;
         HelmData data = Helm.data();
-        if (from.getUUID().equals(target)) return "На себя пожаловаться нельзя";
+        if (from.getUUID().equals(target)) return Texts.t(from, "msg.report.self");
         HelmData.PlayerInfo me = data.player(from.getUUID(), from.getGameProfile().getName());
         long now = System.currentTimeMillis();
         long pause = Helm.settings().reportCooldown * Term.SECOND;
-        if (now - me.lastReport < pause) return "Жалоба не чаще раза в " + Term.label(pause) + ", ещё " + Term.left(pause - (now - me.lastReport));
+        if (now - me.lastReport < pause) return Texts.t(from, "msg.report.cooldown", Texts.lang(from).term(pause), Texts.lang(from).termLeft(pause - (now - me.lastReport)));
         String body = text == null ? "" : text.strip();
-        if (body.isEmpty() && rule <= 0) return "Напишите, что случилось";
+        if (body.isEmpty() && rule <= 0) return Texts.t(from, "msg.report.empty");
         if (body.length() > 600) body = body.substring(0, 600);
         ServerPlayer t = server.getPlayerList().getPlayer(target);
         HelmData.PlayerInfo info = data.players.get(target);
-        if (t == null && info == null) return "Нет такого игрока";
+        if (t == null && info == null) return Texts.t(from, "msg.no_player");
         HelmData.Report r = new HelmData.Report();
         r.id = data.id();
         r.from = from.getUUID();
@@ -68,9 +78,11 @@ public final class Reports {
         me.lastReport = now;
         Helm.dirty();
         Helm.log("report", from.getUUID(), r.fromName, target, r.targetName, "", (r.rule > 0 ? "п. " + r.rule + " · " : "") + "новая#" + r.id);
-        Sync.staffNotice(server, HelmPerms.REPORTS, "report_new", "card", "FLAG", "Новая жалоба",
-            r.fromName + " → " + r.targetName + (r.rule > 0 ? " · п. " + r.rule : ""));
-        Sync.notice(from, "report_sent", "row", "FLAG", "Жалоба отправлена", "ответ придёт уведомлением", false);
+        for (ServerPlayer p : server.getPlayerList().getPlayers()) {
+            if (HelmPerms.REPORTS.test(p)) Sync.notice(p, "report_new", "card", "FLAG", Texts.t(p, "msg.report.new"),
+                r.fromName + " → " + r.targetName + (r.rule > 0 ? " · " + Texts.t(p, "msg.rule_short", r.rule) : ""), false);
+        }
+        Sync.notice(from, "report_sent", "row", "FLAG", Texts.t(from, "msg.report.sent"), Texts.t(from, "msg.report.sent.line"), false);
         Sync.staffChanged();
         for (ServerPlayer p : server.getPlayerList().getPlayers()) if (HelmPerms.REPORTS.test(p)) Sync.hello(p);
         return null;
@@ -78,8 +90,8 @@ public final class Reports {
 
     public static @Nullable String take(ServerPlayer mod, long id) {
         HelmData.Report r = Helm.data().report(id);
-        if (r == null) return "Нет такой жалобы";
-        if (r.state == HelmData.Report.State.CLOSED) return "Жалоба уже закрыта";
+        if (r == null) return Texts.t(mod, "msg.report.no_such");
+        if (r.state == HelmData.Report.State.CLOSED) return Texts.t(mod, "msg.report.closed");
         r.state = HelmData.Report.State.TAKEN;
         r.takenBy = mod.getUUID();
         r.takenByName = mod.getGameProfile().getName();
@@ -93,8 +105,8 @@ public final class Reports {
     /** @param outcome {@code punished} или {@code rejected} */
     public static @Nullable String close(ServerPlayer mod, long id, String outcome) {
         HelmData.Report r = Helm.data().report(id);
-        if (r == null) return "Нет такой жалобы";
-        if (r.state == HelmData.Report.State.CLOSED) return "Жалоба уже закрыта";
+        if (r == null) return Texts.t(mod, "msg.report.no_such");
+        if (r.state == HelmData.Report.State.CLOSED) return Texts.t(mod, "msg.report.closed");
         r.state = HelmData.Report.State.CLOSED;
         r.outcome = "punished".equals(outcome) ? "punished" : "rejected";
         r.closedAt = System.currentTimeMillis();
@@ -104,7 +116,8 @@ public final class Reports {
         }
         Helm.dirty();
         Helm.log("report_close", mod, r.target, r.targetName, "", stateLabel(r) + " · от " + r.fromName);
-        Helm.mail(r.from, "report|Жалоба на " + r.targetName + " от " + Sync.date(r.time));
+        ServerPlayer author = mod.server.getPlayerList().getPlayer(r.from);
+        Helm.mail(r.from, "report|" + Texts.t(author != null ? author : mod, "msg.report.done", r.targetName, Sync.date(r.time)));
         Sync.staffChanged();
         for (ServerPlayer p : mod.server.getPlayerList().getPlayers()) if (HelmPerms.REPORTS.test(p)) Sync.hello(p);
         return null;
@@ -129,7 +142,7 @@ public final class Reports {
             x.putLong("t", r.time);
             x.putString("state", r.state.name().toLowerCase());
             x.putString("by", r.takenByName);
-            x.putString("label", stateLabel(r));
+            x.putString("label", stateLabel(Texts.lang(viewer), r));
             list.add(x);
             if (r.id == selected) pick = r;
         }
@@ -171,7 +184,7 @@ public final class Reports {
             CompoundTag x = new CompoundTag();
             x.putString("kind", p.kind.id());
             x.putLong("t", p.created);
-            x.putString("text", Views.cap(p.kind.noun()) + (p.kind.timed() ? " " + (p.expires == 0 ? "навсегда" : Term.label(p.expires - p.created)) : "") + (p.rule > 0 ? " · п. " + p.rule : ""));
+            x.putString("text", Views.history(Texts.lang(viewer), p, false));
             past.add(x);
             if (past.size() >= 6) break;
         }
@@ -180,7 +193,7 @@ public final class Reports {
             CompoundTag x = new CompoundTag();
             x.putString("kind", "report");
             x.putLong("t", o.time);
-            x.putString("text", "ещё жалоба · " + o.fromName);
+            x.putString("text", Texts.t(viewer, "msg.report.another", o.fromName));
             past.add(x);
         }
         d.put("past", past);

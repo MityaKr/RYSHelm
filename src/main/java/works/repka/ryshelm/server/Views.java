@@ -53,7 +53,7 @@ final class Views {
                 if (Roles.atLeast(viewer, Roles.MODERATOR)) out.put("roles", roles(viewer));
             }
             case "settings" -> {
-                if (HelmPerms.ADMIN.test(viewer)) out.put("settings", settings(viewer.server));
+                if (HelmPerms.ADMIN.test(viewer)) out.put("settings", settings(viewer));
             }
             default -> {}
         }
@@ -207,8 +207,7 @@ final class Views {
             h.putString("kind", x.kind.id());
             h.putLong("id", x.id);
             h.putLong("t", x.created);
-            String term = x.kind.timed() ? " " + (x.expires == 0 ? "навсегда" : Term.label(x.expires - x.created)) : "";
-            h.putString("text", cap(x.kind.noun()) + term + (x.rule > 0 ? " · п. " + x.rule : "") + " · " + x.byName);
+            h.putString("text", history(Texts.lang(viewer), x, true));
             h.putBoolean("active", x.active(now));
             h.putBoolean("revoked", x.revoked > 0);
             h.putBoolean("canRevoke", x.active(now) && (Roles.atLeast(viewer, Roles.OPERATOR) || viewer.getUUID().equals(x.by)));
@@ -220,7 +219,7 @@ final class Views {
             h.putString("kind", "report");
             h.putLong("id", r.id);
             h.putLong("t", r.time);
-            h.putString("text", "Жалоба от " + r.fromName + " · " + Reports.stateLabel(r));
+            h.putString("text", Texts.t(viewer, "msg.report.from", r.fromName) + " · " + Reports.stateLabel(Texts.lang(viewer), r));
             history.add(h);
         }
         history.sort(Comparator.comparingLong((CompoundTag h) -> h.getLong("t")).reversed());
@@ -245,13 +244,19 @@ final class Views {
         return s.isEmpty() ? s : Character.toUpperCase(s.charAt(0)) + s.substring(1);
     }
 
+    /** Строка истории: «Заглушить 1 ч · п. 3 · Grib_ok» на языке зрителя. */
+    static String history(works.repka.ryshelm.logic.Lang lang, HelmData.Punishment x, boolean by) {
+        String term = x.kind.timed() ? " " + (x.expires == 0 ? lang.t("ryshelm.term.forever") : lang.term(x.expires - x.created)) : "";
+        return cap(lang.kind(x.kind)) + term + (x.rule > 0 ? " · " + lang.t("ryshelm.msg.rule_short", x.rule) : "") + (by ? " · " + x.byName : "");
+    }
+
     /** Окно наказания: лестница и потолки для этого модератора. */
     static CompoundTag punish(ServerPlayer viewer, UUID id) {
         HelmData data = Helm.data();
         boolean op = Roles.atLeast(viewer, Roles.OPERATOR), perm = HelmPerms.BAN.test(viewer);
         var caps = Helm.settings().caps();
         CompoundTag t = new CompoundTag();
-        t.putString("ladder", Helm.settings().ladder().describe(data.name(id), data.past(id), System.currentTimeMillis()));
+        t.putString("ladder", Helm.settings().ladder().describe(Texts.lang(viewer), data.name(id), data.past(id), System.currentTimeMillis()));
         var hint = Helm.settings().ladder().next(data.past(id), System.currentTimeMillis());
         t.putString("nextKind", hint.next().kind().id());
         t.putLong("nextTerm", hint.next().millis());
@@ -370,7 +375,8 @@ final class Views {
 
     // ---- настройки ----
 
-    static CompoundTag settings(MinecraftServer server) {
+    static CompoundTag settings(ServerPlayer viewer) {
+        MinecraftServer server = viewer.server;
         var s = Helm.settings();
         CompoundTag t = new CompoundTag();
         t.putBoolean("whitelist", Whitelist.on(server));
@@ -399,7 +405,7 @@ final class Views {
             CompoundTag x = new CompoundTag();
             x.putString("name", k.name);
             x.putInt("items", k.items.size());
-            x.putString("rule", works.repka.ryshelm.logic.KitRule.label(k.cooldown));
+            x.putString("rule", Texts.lang(viewer).kitRule(k.cooldown));
             kits.add(x);
         }
         t.put("kits", kits);

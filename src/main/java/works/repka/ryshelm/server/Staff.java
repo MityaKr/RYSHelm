@@ -21,6 +21,7 @@ import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.Level;
 import org.jetbrains.annotations.Nullable;
 import works.repka.ryscore.travel.TravelApi;
+import works.repka.ryshelm.data.Journal;
 import works.repka.ryshelm.HelmPerms;
 import works.repka.ryshelm.RYSHelm;
 import works.repka.ryshelm.data.HelmData;
@@ -62,7 +63,7 @@ public final class Staff {
             .label(Component.literal(mod.getGameProfile().getName())).skipCooldown().skipWarmup().skipClaims().build());
         if (r.status() == TravelApi.Status.DENIED) return r.message().getString();
         Helm.log("tphere", mod, target.getUUID(), target.getGameProfile().getName(), "", Sync.where(mod));
-        Sync.notice(target, "tphere", "row", "USERS", "Модератор " + mod.getGameProfile().getName() + " позвал вас к себе", "", false);
+        Sync.notice(target, "tphere", "row", "USERS", Texts.t(target, "msg.summoned", mod.getGameProfile().getName()), "", false);
         return null;
     }
 
@@ -71,7 +72,7 @@ public final class Staff {
         ServerPlayer online = mod.server.getPlayerList().getPlayer(target);
         if (online != null) return tp(mod, online);
         HelmData.PlayerInfo info = Helm.data().players.get(target);
-        if (info == null || info.lastPos == null) return "Где видели " + Helm.data().name(target) + ", неизвестно";
+        if (info == null || info.lastPos == null) return Texts.t(mod, "msg.tplast.unknown", Helm.data().name(target));
         String err = to(mod, info.lastPos.dim, info.lastPos.x, info.lastPos.y, info.lastPos.z, true);
         if (err == null) Helm.log("tp", mod, target, info.name, "", "где видели · @" + info.lastPos.dim + " " + info.lastPos.coords());
         return err;
@@ -87,7 +88,7 @@ public final class Staff {
     /** {@code /jump}: на блок под прицелом до 256 блоков. */
     public static @Nullable String jump(ServerPlayer op) {
         var hit = op.pick(256, 1f, false);
-        if (!(hit instanceof net.minecraft.world.phys.BlockHitResult b) || hit.getType() == net.minecraft.world.phys.HitResult.Type.MISS) return "Под прицелом нет блока ближе 256";
+        if (!(hit instanceof net.minecraft.world.phys.BlockHitResult b) || hit.getType() == net.minecraft.world.phys.HitResult.Type.MISS) return Texts.t(op, "msg.jump.none");
         var pos = b.getBlockPos().relative(b.getDirection());
         return to(op, op.level().dimension().location().toString(), pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5, false);
     }
@@ -95,7 +96,7 @@ public final class Staff {
     /** Перенос персонала через {@code TravelApi}: без паузы и привата, с историей «назад». */
     static @Nullable String to(ServerPlayer p, String dim, double x, double y, double z, boolean safe) {
         ServerLevel level = level(p.server, dim);
-        if (level == null) return "Измерение не загружено: " + dim;
+        if (level == null) return Texts.t(p, "msg.no_dim", dim);
         var trip = TravelApi.Trip.to(TravelApi.Spot.of(level, x, y, z)).reason(TravelApi.Reason.STAFF).skipCooldown().skipWarmup().skipClaims();
         if (!safe) trip.skipSafeSpot();
         TravelApi.Result r = TravelApi.get().teleport(p, trip.build());
@@ -104,7 +105,7 @@ public final class Staff {
 
     /** «Переставить»: игрок вне сети окажется у оператора при следующем входе. */
     public static @Nullable String move(ServerPlayer op, UUID target, String name) {
-        if (op.server.getPlayerList().getPlayer(target) != null) return name + " в сети: «Позвать к себе»";
+        if (op.server.getPlayerList().getPlayer(target) != null) return Texts.t(op, "msg.move.online", name);
         HelmData.PlayerInfo info = Helm.data().player(target, name);
         info.moveTo = Helm.spot(op);
         info.moveBy = op.getGameProfile().getName();
@@ -138,7 +139,7 @@ public final class Staff {
             it.remove();
             ServerPlayer target = p.server.getPlayerList().getPlayer(e.getKey());
             if (target != null) {
-                Sync.notice(target, "freeze", "row", "SNOW", "Заморозка снята", "", false);
+                Sync.notice(target, "freeze", "row", "SNOW", Texts.t(target, "msg.unfrozen"), "", false);
                 Sync.hello(target);
             }
             Helm.log("unfreeze", p.getUUID(), p.getGameProfile().getName(), e.getKey(), Helm.data().name(e.getKey()), "", "модератор вышел");
@@ -158,7 +159,7 @@ public final class Staff {
 
     /** «Наблюдать»: режим наблюдателя рядом с игроком, «Вернуться» ставит назад (план 5.3). */
     public static @Nullable String spectate(ServerPlayer mod, ServerPlayer target) {
-        if (mod == target) return "Наблюдать за собой нельзя";
+        if (mod == target) return Texts.t(mod, "msg.spectate.self");
         HelmData data = Helm.data();
         if (!data.spectating.containsKey(mod.getUUID())) {
             HelmData.Spot back = Helm.spot(mod);
@@ -180,7 +181,7 @@ public final class Staff {
     /** «Вернуться»: на место и в прежний режим игры; в журнал строка «наблюдал за X · 4 мин · вернулся на место». */
     public static @Nullable String unspectate(ServerPlayer mod) {
         HelmData.Spot back = Helm.data().spectating.remove(mod.getUUID());
-        if (back == null) return "Вы не наблюдаете";
+        if (back == null) return Texts.t(mod, "ui.wheel.not_spectating");
         Helm.dirty();
         ServerLevel level = level(mod.server, back.dim);
         if (level == null) level = mod.server.overworld();
@@ -208,15 +209,15 @@ public final class Staff {
         String name = target.getGameProfile().getName();
         if (FROZEN.remove(target.getUUID()) != null) {
             Helm.log("unfreeze", mod, target.getUUID(), name, "", "");
-            Sync.notice(target, "freeze", "row", "SNOW", "Заморозка снята", "", false);
+            Sync.notice(target, "freeze", "row", "SNOW", Texts.t(target, "msg.unfrozen"), "", false);
             Sync.hello(target);
-            return name + " разморожен";
+            return Texts.t(mod, "msg.freeze.off", name);
         }
         FROZEN.put(target.getUUID(), new Frozen(mod.getUUID(), mod.getGameProfile().getName(), target.level().dimension(), target.getX(), target.getY(), target.getZ()));
         Helm.log("freeze", mod, target.getUUID(), name, "", Sync.where(target));
-        Sync.notice(target, "freeze", "card", "SNOW", "Вас заморозил модератор", mod.getGameProfile().getName() + " · стойте на месте, он скоро ответит", true);
+        Sync.notice(target, "freeze", "card", "SNOW", Texts.t(target, "msg.frozen"), Texts.t(target, "msg.frozen.line", mod.getGameProfile().getName()), true);
         Sync.hello(target);
-        return name + " заморожен";
+        return Texts.t(mod, "msg.freeze.on", name);
     }
 
     static void tick(MinecraftServer server) {
@@ -239,7 +240,7 @@ public final class Staff {
     public static void invsee(ServerPlayer mod, ServerPlayer target) {
         boolean edit = HelmPerms.INVSEE_EDIT.test(mod);
         mod.openMenu(new SimpleMenuProvider((id, inv, p) -> Peek.inventory(id, inv, target, edit),
-            Component.literal("Инвентарь " + target.getGameProfile().getName() + (edit ? "" : " · только смотреть"))));
+            Texts.c(mod, edit ? "msg.menu.inventory" : "msg.menu.inventory.view", target.getGameProfile().getName())));
         Helm.log(edit ? "invsee_edit" : "invsee", mod, target.getUUID(), target.getGameProfile().getName(), "", edit ? "мог менять" : "только смотрел");
     }
 
@@ -252,13 +253,13 @@ public final class Staff {
         }
         boolean edit = HelmPerms.INVSEE_EDIT.test(viewer);
         viewer.openMenu(new SimpleMenuProvider((id, inv, p) -> Peek.ender(id, inv, target, edit),
-            Component.literal("Сундук Края " + target.getGameProfile().getName() + (edit ? "" : " · только смотреть"))));
+            Texts.c(viewer, edit ? "msg.menu.ender" : "msg.menu.ender.view", target.getGameProfile().getName())));
         Helm.log("enderchest", viewer, target.getUUID(), target.getGameProfile().getName(), "", edit ? "мог менять" : "только смотрел");
     }
 
     /** Корзина: что положил, пропадает при закрытии. */
     public static void trash(ServerPlayer p) {
-        p.openMenu(new SimpleMenuProvider((id, inv, pl) -> ChestMenu.threeRows(id, inv, new SimpleContainer(27)), Component.literal("Корзина · закрыть значит выбросить")));
+        p.openMenu(new SimpleMenuProvider((id, inv, pl) -> ChestMenu.threeRows(id, inv, new SimpleContainer(27)), Texts.c(p, "msg.menu.trash")));
     }
 
     // ---- оператор ----
@@ -268,20 +269,20 @@ public final class Staff {
         target.clearFire();
         target.getFoodData().setFoodLevel(20);
         log(op, target, "heal", "");
-        return target.getGameProfile().getName() + ": здоровье полное";
+        return Texts.t(op, "msg.cheat.heal", target.getGameProfile().getName());
     }
 
     public static String feed(ServerPlayer op, ServerPlayer target) {
         target.getFoodData().setFoodLevel(20);
         target.getFoodData().setSaturation(20f);
         log(op, target, "feed", "");
-        return target.getGameProfile().getName() + " сыт";
+        return Texts.t(op, "msg.cheat.feed", target.getGameProfile().getName());
     }
 
     public static String extinguish(ServerPlayer op, ServerPlayer target) {
         target.clearFire();
         log(op, target, "extinguish", "");
-        return target.getGameProfile().getName() + " потушен";
+        return Texts.t(op, "msg.cheat.extinguish", target.getGameProfile().getName());
     }
 
     public static String fly(ServerPlayer op, ServerPlayer target) {
@@ -289,18 +290,18 @@ public final class Staff {
         a.mayfly = !a.mayfly;
         if (!a.mayfly) a.flying = false;
         target.onUpdateAbilities();
-        log(op, target, "fly", a.mayfly ? "включил" : "выключил");
+        log(op, target, "fly", a.mayfly ? Journal.D_ON : Journal.D_OFF);
         Sync.hello(target);
-        return target.getGameProfile().getName() + ": полёт " + (a.mayfly ? "включён" : "выключен");
+        return Texts.t(op, a.mayfly ? "msg.cheat.fly.on" : "msg.cheat.fly.off", target.getGameProfile().getName());
     }
 
     public static String god(ServerPlayer op, ServerPlayer target) {
         var a = target.getAbilities();
         a.invulnerable = !a.invulnerable;
         target.onUpdateAbilities();
-        log(op, target, "god", a.invulnerable ? "включил" : "выключил");
+        log(op, target, "god", a.invulnerable ? Journal.D_ON : Journal.D_OFF);
         Sync.hello(target);
-        return target.getGameProfile().getName() + ": бессмертие " + (a.invulnerable ? "включено" : "выключено");
+        return Texts.t(op, a.invulnerable ? "msg.cheat.god.on" : "msg.cheat.god.off", target.getGameProfile().getName());
     }
 
     /** Скорость ходьбы и полёта: 1 обычная, до 10. */
@@ -314,7 +315,7 @@ public final class Staff {
         target.getAbilities().setFlyingSpeed(0.05f * k);
         target.onUpdateAbilities();
         log(op, target, "speed", "×" + (k == Math.round(k) ? Integer.toString(Math.round(k)) : Float.toString(k)));
-        return target.getGameProfile().getName() + ": скорость ×" + k;
+        return Texts.t(op, "msg.cheat.speed", target.getGameProfile().getName(), k);
     }
 
     private static void log(ServerPlayer op, ServerPlayer target, String type, String detail) {

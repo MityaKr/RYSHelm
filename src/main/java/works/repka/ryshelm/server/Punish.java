@@ -14,6 +14,7 @@ import works.repka.ryscore.perm.Roles;
 import works.repka.ryshelm.HelmPerms;
 import works.repka.ryshelm.data.HelmData;
 import works.repka.ryshelm.logic.Kind;
+import works.repka.ryshelm.logic.Lang;
 import works.repka.ryshelm.logic.Term;
 
 /**
@@ -45,7 +46,7 @@ public final class Punish {
         String why = allowed(server, actor, target, kind, millis);
         if (why != null) return why;
         ServerPlayer online = server.getPlayerList().getPlayer(target);
-        if (kind == Kind.KICK && online == null) return targetName + " не в сети";
+        if (kind == Kind.KICK && online == null) return Texts.t(actor, "msg.offline", targetName);
         long now = System.currentTimeMillis();
         HelmData data = Helm.data();
         HelmData.Punishment p = new HelmData.Punishment();
@@ -72,17 +73,19 @@ public final class Punish {
         Helm.dirty();
         String term = kind.timed() ? Term.onLabel(millis) : "";
         Helm.log(kind.id(), actor, target, targetName, term, note(p));
-        String told = told(p);
+        // игроку на его языке; вне сети на языке модератора: отложенное уведомление хранится готовой строкой
+        Lang lang = Texts.lang(online != null ? online : actor);
+        String told = told(lang, p);
         switch (kind) {
             case WARN -> Helm.mail(target, "warn|" + told);
             case MUTE -> Helm.mail(target, "mute|" + told);
-            case KICK -> online.connection.disconnect(Component.literal("Вас выгнали с сервера" + (shown && !p.reason.isEmpty() ? ": " + p.reason : "")
-                + (p.rule > 0 ? "\n" + Helm.rules().ref(p.rule) : "")));
+            case KICK -> online.connection.disconnect(Texts.c(online, "msg.kicked").append(shown && !p.reason.isEmpty() ? ": " + p.reason : "")
+                .append(p.rule > 0 ? "\n" + Helm.rules().ref(lang, p.rule) : ""));
             case BAN -> {
                 UserBanList bans = server.getPlayerList().getBans();
                 GameProfile gp = new GameProfile(target, targetName);
-                bans.add(new UserBanListEntry(gp, new Date(now), p.byName, p.expires == 0 ? null : new Date(p.expires), shown ? banReason(p) : "Бан"));
-                if (online != null) online.connection.disconnect(Component.literal(banText(p)));
+                bans.add(new UserBanListEntry(gp, new Date(now), p.byName, p.expires == 0 ? null : new Date(p.expires), shown ? banReason(lang, p) : lang.t("ryshelm.msg.ban")));
+                if (online != null) online.connection.disconnect(banText(online, p));
             }
         }
         Sync.staffChanged();
@@ -92,11 +95,11 @@ public final class Punish {
     /** Кто может выдать: право на вид, потолок срока, нельзя наказать себя и равного или старшего по роли. */
     public static @Nullable String allowed(MinecraftServer server, @Nullable ServerPlayer actor, UUID target, Kind kind, long millis) {
         if (actor == null) return null;
-        if (actor.getUUID().equals(target)) return "Себя наказать нельзя";
+        if (actor.getUUID().equals(target)) return Texts.t(actor, "msg.punish.self");
         boolean operator = Roles.atLeast(actor, Roles.OPERATOR);
-        if (!node(kind, millis).test(actor)) return "Нет права: " + node(kind, millis).id();
-        if (!operator && Roles.rank(Roles.of(server, target)) >= Roles.rank(Roles.of(actor))) return "Персонал наказывает только оператор";
-        return Helm.settings().caps().check(operator, HelmPerms.BAN.test(actor), kind, millis);
+        if (!node(kind, millis).test(actor)) return Texts.t(actor, "msg.no_perm", node(kind, millis).id());
+        if (!operator && Roles.rank(Roles.of(server, target)) >= Roles.rank(Roles.of(actor))) return Texts.t(actor, "msg.punish.staff");
+        return Helm.settings().caps().check(Texts.lang(actor), operator, HelmPerms.BAN.test(actor), kind, millis);
     }
 
     /** «п. 3 · мат в общем чате» для журнала. */
@@ -107,13 +110,13 @@ public final class Punish {
     }
 
     /** Что видит игрок: срок, пункт правил, причина (если «Игрок видит причину»). */
-    static String told(HelmData.Punishment p) {
+    static String told(Lang lang, HelmData.Punishment p) {
         StringBuilder b = new StringBuilder();
-        if (p.kind.timed()) b.append(p.expires == 0 ? "навсегда" : "до " + Sync.dateTime(p.expires));
+        if (p.kind.timed()) b.append(until(lang, p));
         if (p.shown) {
             if (p.rule > 0) {
                 if (!b.isEmpty()) b.append(" · ");
-                b.append(Helm.rules().ref(p.rule));
+                b.append(Helm.rules().ref(lang, p.rule));
             }
             if (!p.reason.isEmpty()) {
                 if (!b.isEmpty()) b.append(" · ");
@@ -123,22 +126,31 @@ public final class Punish {
         return b.toString();
     }
 
-    static String banReason(HelmData.Punishment p) {
-        String r = told(p);
-        return r.isEmpty() ? "Бан" : r;
+    /** «навсегда» или «до 23.11 14:05». */
+    static String until(Lang lang, HelmData.Punishment p) {
+        return p.expires == 0 ? lang.t("ryshelm.term.forever") : lang.t("ryshelm.msg.until", Sync.dateTime(p.expires));
     }
 
-    static String banText(HelmData.Punishment p) {
-        return "Вы забанены " + (p.expires == 0 ? "навсегда" : "до " + Sync.dateTime(p.expires)) + (p.shown && !p.reason.isEmpty() ? "\nПричина: " + p.reason : "")
-            + (p.shown && p.rule > 0 ? "\n" + Helm.rules().ref(p.rule) : "");
+    static String banReason(Lang lang, HelmData.Punishment p) {
+        String r = told(lang, p);
+        return r.isEmpty() ? lang.t("ryshelm.msg.ban") : r;
+    }
+
+    /** Экран отключения забаненного: ключ с запасным текстом, его поймёт и клиент без мода. */
+    static Component banText(ServerPlayer target, HelmData.Punishment p) {
+        Lang lang = Texts.lang(target);
+        var c = Texts.c(target, "msg.banned", until(lang, p));
+        if (p.shown && !p.reason.isEmpty()) c.append("\n").append(Texts.c(target, "msg.banned.reason", p.reason));
+        if (p.shown && p.rule > 0) c.append("\n" + Helm.rules().ref(lang, p.rule));
+        return c;
     }
 
     /** Снять наказание по номеру: тот, кто дал, или оператор. */
     public static @Nullable String revoke(MinecraftServer server, @Nullable ServerPlayer actor, long id) {
         HelmData.Punishment p = Helm.data().punishment(id);
-        if (p == null) return "Нет такого наказания";
-        if (!p.active(System.currentTimeMillis())) return "Наказание уже не действует";
-        if (actor != null && !Roles.atLeast(actor, Roles.OPERATOR) && !actor.getUUID().equals(p.by)) return "Снять может тот, кто дал, и оператор";
+        if (p == null) return Texts.t(actor, "msg.punish.no_such");
+        if (!p.active(System.currentTimeMillis())) return Texts.t(actor, "msg.punish.inactive");
+        if (actor != null && !Roles.atLeast(actor, Roles.OPERATOR) && !actor.getUUID().equals(p.by)) return Texts.t(actor, "msg.punish.revoke_who");
         p.revoked = System.currentTimeMillis();
         p.revokedBy = actor == null ? "консоль" : actor.getGameProfile().getName();
         Helm.dirty();
@@ -157,13 +169,13 @@ public final class Punish {
             if (kind == Kind.BAN) {
                 GameProfile gp = new GameProfile(target, Helm.data().name(target));
                 if (server.getPlayerList().getBans().isBanned(gp)) {
-                    if (actor != null && !HelmPerms.BAN_TEMP.test(actor)) return "Нет права снимать бан";
+                    if (actor != null && !HelmPerms.BAN_TEMP.test(actor)) return Texts.t(actor, "msg.punish.no_unban");
                     server.getPlayerList().getBans().remove(gp);
                     Helm.log("unban", actor, target, gp.getName(), "", "бан из списка игры");
                     return null;
                 }
             }
-            return "Нет действующего наказания";
+            return Texts.t(actor, "msg.punish.none_active");
         }
         return revoke(server, actor, p.id);
     }

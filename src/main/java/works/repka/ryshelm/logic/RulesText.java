@@ -102,6 +102,12 @@ public final class RulesText {
         return r == null ? "" : "п. " + number + " «" + r.title + "»";
     }
 
+    /** То же на языке {@code lang}: «п. 3 «…»», «rule 3 "…"». */
+    public String ref(Lang lang, int number) {
+        Rule r = rule(number);
+        return r == null ? "" : lang.t("ryshelm.ui.report.rule_ref", number, r.title);
+    }
+
     /** Правила RepYS по умолчанию (макет 13): кладутся в config при первом запуске. */
     public static final String DEFAULT = """
         # Правила сервера

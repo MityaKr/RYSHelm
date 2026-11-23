@@ -191,7 +191,7 @@ public final class DuoTest {
         step("ждём снятия", () -> HelmClient.mutedUntil == 0, () -> say("после-снятия-мута"), 20);
         // наблюдение и чат персонала Alpha
         step("ждём конца", () -> heard("alpha-done"), () -> {
-            check("чат персонала не дошёл до игрока", !heard("[Персонал]"));
+            check("чат персонала не дошёл до игрока", !heard("[Персонал]") && !heard("[Staff]"));
             check("игрок не получил кнопок персонала", !HelmClient.can("ryshelm.mute"));
             finish();
             say("beta-finished");
@@ -260,7 +260,7 @@ public final class DuoTest {
         step("вернулась", () -> check("Alpha вернулась из наблюдения", !mc().player.isSpectator() && !HelmClient.spectating), 5);
         // чат персонала
         step("чат персонала", () -> mc().player.connection.sendCommand("sc привет персоналу"), 20);
-        step("услышала", () -> check("чат персонала дошёл до оператора", heard("[Персонал]")), 2);
+        step("услышала", () -> check("чат персонала дошёл до оператора", heard("[Персонал]") || heard("[Staff]")), 2);
         step("журнал", () -> View.request("journal", null, null, 0, "", 1, ""), 20);
         step("журнал пришёл", () -> {
             check("в журнале заморозка, мут, наблюдение, жалоба", View.journal.getList("entries", 10).size() >= 6);

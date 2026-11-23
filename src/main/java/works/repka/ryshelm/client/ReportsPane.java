@@ -18,6 +18,7 @@ import works.repka.ryscore.ui.Kit;
 import works.repka.ryscore.ui.Scroller;
 import works.repka.ryscore.ui.Type.Weight;
 import works.repka.ryshelm.logic.Kind;
+import static works.repka.ryshelm.client.Tr.tr;
 
 /**
  * Жалобы в окне «Сервер»: вкладка модератора (макет 10: список, карточка с местом, чатом и прошлым нарушителя, «Взять»,
@@ -51,28 +52,28 @@ final class ReportsPane {
         var t = s.t;
         int x = s.px + ServerScreen.SPLIT + 9, w = ServerScreen.W - ServerScreen.SPLIT - 18, top = s.py + ServerScreen.HEAD;
         Ui.faceTile(g, t, formTarget, x + 1, top + 9, 22, false);
-        Draw.label(g, Draw.ellipsize("Жалоба на " + formName, w - 50, 18, Weight.DISPLAY), x + 29, top + 15, 18, Weight.DISPLAY, t.c("text.primary"));
-        Draw.label(g, "увидят только модераторы", x + 29, top + 26.5f, 12, Weight.REGULAR, t.c("text.muted"));
+        Draw.label(g, Draw.ellipsize(tr("ui.report.on", formName), w - 50, 18, Weight.DISPLAY), x + 29, top + 15, 18, Weight.DISPLAY, t.c("text.primary"));
+        Draw.label(g, tr("ui.report.only_mods"), x + 29, top + 26.5f, 12, Weight.REGULAR, t.c("text.muted"));
         int cx = s.px + ServerScreen.W - 20;
         boolean hot = Kit.over(s.mx, s.my, cx - 3, top + 9, 12, 12);
         Draw.cross(g, cx, top + 12, hot ? t.c("accent") : t.c("text.muted"));
         s.hits.add(cx - 3, top + 9, 12, 12, b -> formTarget = null);
         int y = top + 40;
-        Ui.caps(g, t, "Что нарушено", x, y + 3);
+        Ui.caps(g, t, tr("ui.report.rule"), x, y + 3);
         y += 10;
-        String label = formRule > 0 ? formRule + ". " + ServerScreen.ruleTitle(formRule) : "Выберите пункт правил";
+        String label = formRule > 0 ? formRule + ". " + ServerScreen.ruleTitle(formRule) : tr("ui.report.rule.pick");
         fullDropdown(g, formRuleDd, x, y, w, label, formRule > 0);
         y += 23;
-        Ui.caps(g, t, "Что случилось", x, y + 3);
+        Ui.caps(g, t, tr("ui.hint.what"), x, y + 3);
         y += 10;
         Ui.input(g, t, s.reportText, x, y, w, 46, s.mx, s.my);
         y += 52;
-        Ui.callout(g, t, "Место, где вы оба стоите, и последние строки чата приложатся сами. Ответ придёт уведомлением.", x, y, w, false);
+        Ui.callout(g, t, tr("ui.report.attach"), x, y, w, false);
         int by = s.py + ServerScreen.H - 40;
         Draw.round(g, s.px + ServerScreen.SPLIT + 1, by - 8, ServerScreen.W - ServerScreen.SPLIT - 2, 0.5f, 0.02f, t.c("panel.border"));
         boolean ready = formRule > 0 || !s.reportText.getValue().isBlank();
-        Ui.primary(g, t, s.hits, x, by, w, 20, Icons.Shape.FLAG, "Отправить жалобу", s.mx, s.my, ready ? this::send : null);
-        String hint = "не чаще раза в 2 минуты";
+        Ui.primary(g, t, s.hits, x, by, w, 20, Icons.Shape.FLAG, tr("ui.report.send"), s.mx, s.my, ready ? this::send : null);
+        String hint = tr("ui.report.cooldown");
         Draw.label(g, hint, x + (w - Draw.labelWidth(hint, 11, Weight.REGULAR)) / 2f, by + 28, 11, Weight.REGULAR, t.c("text.muted"));
     }
 
@@ -111,9 +112,9 @@ final class ReportsPane {
             }
         }
         int x = left, fy = top + 9;
-        x += Kit.pill(g, t, s.hits, x, fy, "Новые · " + nNew, state.equals("new"), s.mx, s.my, () -> state = "new") + 3;
-        x += Kit.pill(g, t, s.hits, x, fy, "Взятые · " + nTaken, state.equals("taken"), s.mx, s.my, () -> state = "taken") + 3;
-        Kit.pill(g, t, s.hits, x, fy, "Закрытые · " + nClosed, state.equals("closed"), s.mx, s.my, () -> state = "closed");
+        x += Kit.pill(g, t, s.hits, x, fy, tr("ui.report.filter.new") + " · " + nNew, state.equals("new"), s.mx, s.my, () -> state = "new") + 3;
+        x += Kit.pill(g, t, s.hits, x, fy, tr("ui.report.filter.taken") + " · " + nTaken, state.equals("taken"), s.mx, s.my, () -> state = "taken") + 3;
+        Kit.pill(g, t, s.hits, x, fy, tr("ui.report.filter.closed") + " · " + nClosed, state.equals("closed"), s.mx, s.my, () -> state = "closed");
         List<CompoundTag> rows = new ArrayList<>();
         String q = s.search.getValue().strip().toLowerCase();
         for (Tag xr : all) {
@@ -130,7 +131,7 @@ final class ReportsPane {
         int y = listTop - scroll;
         CompoundTag detail = v.contains("detail") ? v.getCompound("detail") : null;
         long sel = detail == null ? 0 : detail.getLong("id");
-        if (rows.isEmpty()) Draw.label(g, state.equals("new") ? "Новых жалоб нет." : "Пусто.", left + 4, listTop + 8, 12.5f, Weight.REGULAR, t.c("text.muted"));
+        if (rows.isEmpty()) Draw.label(g, state.equals("new") ? tr("ui.report.none_new") : tr("ui.report.empty"), left + 4, listTop + 8, 12.5f, Weight.REGULAR, t.c("text.muted"));
         for (CompoundTag r : rows) {
             if (y + h >= listTop && y <= bottom) item(g, r, left, y, listW, h, r.getLong("id") == sel);
             y += step;
@@ -139,7 +140,7 @@ final class ReportsPane {
         s.hits.unclip();
         Draw.round(g, s.px + 186, top + 8, 0.5f, ServerScreen.H - ServerScreen.HEAD - 16, 0.02f, t.c("panel.border"));
         if (detail != null) detail(g, detail);
-        else Draw.label(g, "Выберите жалобу слева.", s.px + 196, top + 16, 12.5f, Weight.REGULAR, t.c("text.muted"));
+        else Draw.label(g, tr("ui.report.pick"), s.px + 196, top + 16, 12.5f, Weight.REGULAR, t.c("text.muted"));
     }
 
     private void item(GuiGraphics g, CompoundTag r, int x, int y, int w, int h, boolean sel) {
@@ -152,7 +153,7 @@ final class ReportsPane {
             s.request();
         });
         String st = r.getString("state");
-        String chip = st.equals("new") ? "новая" : st.equals("taken") ? r.getString("by") : "закрыта";
+        String chip = st.equals("new") ? tr("ui.report.chip.new") : st.equals("taken") ? r.getString("by") : tr("ui.report.chip.closed");
         int cw = Ui.roleChip(g, t, chip, x + 6, y + 9.5f, st.equals("new") ? "bad" : st.equals("taken") ? "moderator" : "newbie");
         String who = r.getString("from") + " → " + r.getString("target");
         String when = Words.when(r.getLong("t"));
@@ -169,8 +170,8 @@ final class ReportsPane {
         UUID target = d.getUUID("targetId");
         String name = d.getString("target");
         Ui.faceTile(g, t, target, x + 1, top + 10, 20, false);
-        Draw.label(g, "Жалоба на " + name, x + 27, top + 16, 18, Weight.DISPLAY, t.c("text.primary"));
-        String sub = "от " + d.getString("from") + " · " + Words.dayTime(d.getLong("t")) + (d.getInt("rule") > 0 ? " · п. " + d.getInt("rule") + " «" + d.getString("ruleTitle") + "»" : "");
+        Draw.label(g, tr("ui.report.on", name), x + 27, top + 16, 18, Weight.DISPLAY, t.c("text.primary"));
+        String sub = tr("ui.report.from", d.getString("from")) + " · " + Words.dayTime(d.getLong("t")) + (d.getInt("rule") > 0 ? " · " + tr("ui.report.rule_ref", d.getInt("rule"), d.getString("ruleTitle")) : "");
         Draw.label(g, Draw.ellipsize(sub, w - 30, 12, Weight.REGULAR), x + 27, top + 27.5f, 12, Weight.REGULAR, t.c("text.muted"));
         int y = top + 38;
         if (!d.getString("text").isEmpty()) {
@@ -185,8 +186,8 @@ final class ReportsPane {
         }
         int colW = (w - 8) / 2 - 2, rx = x + colW + 10;
         // где это было: тайлы карты, если RYSMap их даёт
-        Ui.caps(g, t, "Где это было", x, y + 4);
-        Ui.right(g, "в " + Words.time(d.getLong("t")), x + colW, y + 4, 11, Weight.REGULAR, t.c("text.muted"));
+        Ui.caps(g, t, tr("ui.report.where"), x, y + 4);
+        Ui.right(g, tr("ui.report.at", Words.time(d.getLong("t"))), x + colW, y + 4, 11, Weight.REGULAR, t.c("text.muted"));
         int my = y + 10, mh = 82;
         CompoundTag tp = d.contains("targetPos") ? d.getCompound("targetPos") : null, fp = d.contains("fromPos") ? d.getCompound("fromPos") : null;
         Draw.roundBox(g, x, my, colW, mh, 5f, t.c("map.bg"), t.c("panel.border"));
@@ -213,11 +214,11 @@ final class ReportsPane {
         Draw.round(g, x + 6, cy + 19, colW - 12, 0.5f, 0.02f, t.c("card.border"));
         posRow(g, target, name, tp, x, cy + 29, colW);
         Draw.round(g, x + 6, cy + 38.5f, colW - 12, 0.5f, 0.02f, t.c("card.border"));
-        Draw.label(g, "Земля", x + 6, cy + 48, 12, Weight.REGULAR, t.c("text.muted"));
-        Ui.right(g, d.getString("land").isEmpty() ? "ничья" : d.getString("land"), x + colW - 6, cy + 48, 12, Weight.SEMIBOLD, t.c("text.primary"));
+        Draw.label(g, tr("ui.report.land"), x + 6, cy + 48, 12, Weight.REGULAR, t.c("text.muted"));
+        Ui.right(g, d.getString("land").isEmpty() ? tr("ui.card.land.none") : d.getString("land"), x + colW - 6, cy + 48, 12, Weight.SEMIBOLD, t.c("text.primary"));
         cy += 61;
         final CompoundTag tpf = tp;
-        Ui.button(g, t, s.hits, x, cy, colW, 16, Icons.Shape.TELEPORT, "Телепорт туда", false, s.mx, s.my, tpf != null && HelmClient.can("ryshelm.tp") ? () -> {
+        Ui.button(g, t, s.hits, x, cy, colW, 16, Icons.Shape.TELEPORT, tr("ui.report.tp"), false, s.mx, s.my, tpf != null && HelmClient.can("ryshelm.tp") ? () -> {
             CompoundTag a = new CompoundTag();
             a.putString("dim", tpf.getString("dim"));
             a.putDouble("x", tpf.getDouble("x"));
@@ -227,14 +228,14 @@ final class ReportsPane {
         } : null);
         // чат до жалобы
         ListTag chat = d.getList("chat", Tag.TAG_COMPOUND);
-        Ui.caps(g, t, "Чат " + name + " до жалобы", rx, y + 4);
-        Ui.right(g, works.repka.ryshelm.logic.Term.plural(chat.size(), "строка", "строки", "строк"), rx + colW, y + 4, 11, Weight.REGULAR, t.c("text.muted"));
+        Ui.caps(g, t, tr("ui.report.chat", name), rx, y + 4);
+        Ui.right(g, Tr.n("ui.report.lines", chat.size()), rx + colW, y + 4, 11, Weight.REGULAR, t.c("text.muted"));
         int chatTop = y + 10, chatH = Math.max(24, Math.min(10, Math.max(1, chat.size())) * 9 + 6);
         Draw.roundBox(g, rx, chatTop, colW, chatH, 5f, Draw.mix(t.c("panel.bg"), 0xFF000000, 0.3f), t.c("panel.border"));
         int scroll = Math.round(chatScroll.update(Math.max(0, chat.size() * 9 + 6 - chatH)));
         Draw.scissor(g, rx + 1, chatTop + 1, rx + colW - 1, chatTop + chatH - 1);
         float ly = chatTop + 7.5f - scroll;
-        if (chat.isEmpty()) Draw.label(g, "Чат пуст: игрок не писал с запуска сервера", rx + 5, ly, 11.5f, Weight.REGULAR, t.c("text.muted"));
+        if (chat.isEmpty()) Draw.label(g, tr("ui.report.chat.empty"), rx + 5, ly, 11.5f, Weight.REGULAR, t.c("text.muted"));
         for (Tag xc : chat) {
             CompoundTag c = (CompoundTag) xc;
             String time = Words.time(c.getLong("t"));
@@ -248,15 +249,15 @@ final class ReportsPane {
         g.disableScissor();
         // прошлое нарушителя
         int py = chatTop + chatH + 8;
-        Ui.caps(g, t, "Прошлое " + name, rx, py + 4);
-        float lw = Draw.labelWidth("Карточка игрока", 11.5f, Weight.MEDIUM);
-        if (HelmClient.can("ryshelm.players")) Ui.link(g, t, s.hits, "Карточка игрока", rx + colW - lw, py + 4, 11.5f, s.mx, s.my, () -> {
+        Ui.caps(g, t, tr("ui.report.past", name), rx, py + 4);
+        float lw = Draw.labelWidth(tr("ui.side.card"), 11.5f, Weight.MEDIUM);
+        if (HelmClient.can("ryshelm.players")) Ui.link(g, t, s.hits, tr("ui.side.card"), rx + colW - lw, py + 4, 11.5f, s.mx, s.my, () -> {
             ServerScreen.selected = target;
             s.switchTab(ServerScreen.Tab.PLAYERS);
         });
         py += 12;
         ListTag past = d.getList("past", Tag.TAG_COMPOUND);
-        if (past.isEmpty()) Draw.label(g, "Чисто: наказаний и других жалоб нет", rx, py + 5, 12, Weight.REGULAR, t.c("text.muted"));
+        if (past.isEmpty()) Draw.label(g, tr("ui.report.past.none"), rx, py + 5, 12, Weight.REGULAR, t.c("text.muted"));
         for (Tag xp : past) {
             CompoundTag p = (CompoundTag) xp;
             Icons.Shape icon = switch (p.getString("kind")) {
@@ -280,33 +281,33 @@ final class ReportsPane {
         if (!st.equals("closed")) {
             if (!st.equals("taken") || !d.getBoolean("mine")) {
                 int tw = 44;
-                Ui.primary(g, t, s.hits, bx, by, tw, 16, Icons.Shape.HAND, "Взять", s.mx, s.my, () -> act("report_take", id, ""));
+                Ui.primary(g, t, s.hits, bx, by, tw, 16, Icons.Shape.HAND, tr("ui.report.take"), s.mx, s.my, () -> act("report_take", id, ""));
                 bx += tw + 4;
             } else {
-                Draw.label(g, "Взята вами", bx, by + 8, 12, Weight.MEDIUM, t.c("text.secondary"));
-                bx += (int) Draw.labelWidth("Взята вами", 12, Weight.MEDIUM) + 8;
+                Draw.label(g, tr("ui.report.taken_by_you"), bx, by + 8, 12, Weight.MEDIUM, t.c("text.secondary"));
+                bx += (int) Draw.labelWidth(tr("ui.report.taken_by_you"), 12, Weight.MEDIUM) + 8;
             }
-            Ui.button(g, t, s.hits, bx, by, 60, 16, Icons.Shape.MUTE, "Наказать…", false, s.mx, s.my, HelmClient.can("ryshelm.mute") || HelmClient.can("ryshelm.warn") ? () -> {
+            Ui.button(g, t, s.hits, bx, by, 60, 16, Icons.Shape.MUTE, tr("ui.report.punish"), false, s.mx, s.my, HelmClient.can("ryshelm.mute") || HelmClient.can("ryshelm.warn") ? () -> {
                 Kind kind = HelmClient.can("ryshelm.mute") ? Kind.MUTE : Kind.WARN;
                 s.openPunish(kind, target, name);
             } : null);
             bx += 64;
-            String closeText = "Закрыть: не подтвердилось";
+            String closeText = tr("ui.report.close.rejected");
             float cw = Draw.labelWidth(closeText, 12, Weight.MEDIUM);
             boolean hot = Kit.over(s.mx, s.my, bx + 4, by, (int) cw + 6, 16);
             Draw.label(g, closeText, bx + 7, by + 8, 12, Weight.MEDIUM, hot ? t.c("text.primary") : t.c("text.secondary"));
             s.hits.add(bx + 4, by, (int) cw + 6, 16, b -> act("report_close", id, "rejected"));
             bx += (int) cw + 12;
-            String done = "Наказан";
+            String done = tr("ui.report.close.punished");
             float dw = Draw.labelWidth(done, 12, Weight.MEDIUM);
             boolean hot2 = Kit.over(s.mx, s.my, bx + 4, by, (int) dw + 6, 16);
             Draw.label(g, "· " + done, bx + 2, by + 8, 12, Weight.MEDIUM, hot2 ? t.c("text.primary") : t.c("text.secondary"));
             s.hits.add(bx + 4, by, (int) dw + 8, 16, b -> act("report_close", id, "punished"));
-            if (hot2) s.tooltip = List.of("Закрыть с итогом «наказан»");
+            if (hot2) s.tooltip = List.of(tr("ui.report.close.punished.tip"));
         } else {
-            Draw.label(g, "Закрыта · " + d.getString("by"), bx, by + 8, 12, Weight.MEDIUM, t.c("text.muted"));
+            Draw.label(g, tr("ui.report.closed_by", d.getString("by")), bx, by + 8, 12, Weight.MEDIUM, t.c("text.muted"));
         }
-        String foot = d.getString("from") + " узнает только, что жалоба рассмотрена";
+        String foot = tr("ui.report.foot", d.getString("from"));
         Ui.right(g, Draw.ellipsize(foot, x + w - bx - 150, 11.5f, Weight.REGULAR), x + w, by + 8, 11.5f, Weight.REGULAR, t.c("text.muted"));
     }
 
@@ -342,7 +343,7 @@ final class ReportsPane {
                 CompoundTag r = (CompoundTag) x;
                 options.add(new Kit.Option(r.getInt("n") + ". " + r.getString("title"), -1));
             }
-            options.add(new Kit.Option("Другое: напишу ниже", -1));
+            options.add(new Kit.Option(tr("ui.report.rule.other"), -1));
             int w = ServerScreen.W - ServerScreen.SPLIT - 18;
             Kit.dropdownList(g, s.t, s.hits, formRuleDd, options, ServerScreen.ruleIndex(formRule) - 1, w, s.mx, s.my, i -> {
                 ListTag items = View.rules.getList("items", Tag.TAG_COMPOUND);

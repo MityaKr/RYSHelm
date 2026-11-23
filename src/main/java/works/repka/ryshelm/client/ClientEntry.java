@@ -69,12 +69,12 @@ public final class ClientEntry {
     }
 
     private static Action.State need(String node, String why) {
-        if (!HelmClient.present) return Action.State.off("На сервере нет RYSHelm");
+        if (!HelmClient.present) return Action.State.off(Tr.tr("ui.wheel.no_mod"));
         return HelmClient.can(node) ? Action.State.ready() : Action.State.off(why);
     }
 
     private static Action.State toggle(String node, BooleanSupplier on) {
-        Action.State s = need(node, "Нет права");
+        Action.State s = need(node, Tr.tr("ui.wheel.no_perm"));
         return s.usable() && on.getAsBoolean() ? Action.State.active() : s;
     }
 
@@ -83,24 +83,24 @@ public final class ClientEntry {
         Action.builder(id("open")).label(tr("open")).icon(Icons.Shape.SERVER).group(Action.Group.SERVER).run(() -> ServerScreen.open(null)).register();
         Action.builder(id("rules")).label(tr("rules")).icon(Icons.Shape.BOOK).group(Action.Group.SERVER).run(() -> ServerScreen.open("rules")).register();
         Action.builder(id("ender_chest")).label(tr("ender_chest")).icon(Icons.Shape.CHEST).group(Action.Group.SERVER)
-            .state(() -> need("ryshelm.enderchest", "Нет права")).run(() -> HelmClient.action("ender")).register();
+            .state(() -> need("ryshelm.enderchest", Tr.tr("ui.wheel.no_perm"))).run(() -> HelmClient.action("ender")).register();
         Action.builder(id("trash")).label(tr("trash")).icon(Icons.Shape.TRASH).group(Action.Group.SERVER)
-            .state(() -> need("ryshelm.trash", "Нет права")).run(() -> HelmClient.action("trash")).register();
+            .state(() -> need("ryshelm.trash", Tr.tr("ui.wheel.no_perm"))).run(() -> HelmClient.action("trash")).register();
         Action.builder(id("kits")).label(tr("kits")).icon(Icons.Shape.CHEST).group(Action.Group.SERVER).badge(() -> (int) HelmClient.KITS.values().stream().filter(v -> v == 0).count())
-            .state(() -> !HelmClient.present ? Action.State.off("На сервере нет RYSHelm") : HelmClient.KITS.isEmpty() ? Action.State.off("Наборов нет") : Action.State.ready())
+            .state(() -> !HelmClient.present ? Action.State.off(Tr.tr("ui.wheel.no_mod")) : HelmClient.KITS.isEmpty() ? Action.State.off(Tr.tr("ui.wheel.no_kits")) : Action.State.ready())
             .list(ClientEntry::kits).register();
         // модерация
         Action.builder(id("players")).label(tr("players")).icon(Icons.Shape.USERS).group(Action.Group.MODERATION).run(() -> ServerScreen.open("players")).register();
         Action.builder(id("reports")).label(tr("reports")).icon(Icons.Shape.FLAG).group(Action.Group.MODERATION).badge(() -> HelmClient.reports)
-            .state(() -> need("ryshelm.reports", "Нет права")).run(() -> ServerScreen.open("reports")).register();
+            .state(() -> need("ryshelm.reports", Tr.tr("ui.wheel.no_perm"))).run(() -> ServerScreen.open("reports")).register();
         Action.builder(id("journal")).label(tr("journal")).icon(Icons.Shape.LIST).group(Action.Group.MODERATION)
-            .state(() -> need("ryshelm.journal", "Нет права")).run(() -> ServerScreen.open("journal")).register();
+            .state(() -> need("ryshelm.journal", Tr.tr("ui.wheel.no_perm"))).run(() -> ServerScreen.open("journal")).register();
         Action.builder(id("staff_chat")).label(tr("staff_chat")).icon(Icons.Shape.CHAT).group(Action.Group.MODERATION)
             .state(() -> toggle("ryshelm.staffchat", () -> HelmClient.staffChat)).run(() -> HelmClient.action("staffchat")).register();
         Action.builder(id("spectate")).label(tr("spectate")).icon(Icons.Shape.EYE).group(Action.Group.MODERATION)
-            .state(() -> need("ryshelm.spectate", "Нет права")).list(() -> players("spectate", "ryshelm.spectate")).register();
+            .state(() -> need("ryshelm.spectate", Tr.tr("ui.wheel.no_perm"))).list(() -> players("spectate", "ryshelm.spectate")).register();
         Action.builder(id("spectate_return")).label(tr("spectate_return")).icon(Icons.Shape.UNDO).group(Action.Group.MODERATION)
-            .state(() -> !HelmClient.present ? Action.State.off("На сервере нет RYSHelm") : HelmClient.spectating ? Action.State.ready() : Action.State.off("Вы не наблюдаете"))
+            .state(() -> !HelmClient.present ? Action.State.off(Tr.tr("ui.wheel.no_mod")) : HelmClient.spectating ? Action.State.ready() : Action.State.off(Tr.tr("ui.wheel.not_spectating")))
             .run(() -> HelmClient.action("spectate_return")).register();
         // оператор
         Action.builder(id("fly")).label(tr("fly")).icon(Icons.Shape.FEATHER).group(Action.Group.OPERATOR)
@@ -108,13 +108,13 @@ public final class ClientEntry {
         Action.builder(id("god")).label(tr("god")).icon(Icons.Shape.SHIELD).group(Action.Group.OPERATOR)
             .state(() -> toggle("ryshelm.cheat", () -> HelmClient.god)).run(() -> cheat("god", 0)).register();
         Action.builder(id("heal")).label(tr("heal")).icon(Icons.Shape.HEART).group(Action.Group.OPERATOR)
-            .state(() -> need("ryshelm.cheat", "Нет права")).run(() -> cheat("heal", 0)).register();
+            .state(() -> need("ryshelm.cheat", Tr.tr("ui.wheel.no_perm"))).run(() -> cheat("heal", 0)).register();
         Action.builder(id("feed")).label(tr("feed")).icon(Icons.Shape.FORK).group(Action.Group.OPERATOR)
-            .state(() -> need("ryshelm.cheat", "Нет права")).run(() -> cheat("feed", 0)).register();
+            .state(() -> need("ryshelm.cheat", Tr.tr("ui.wheel.no_perm"))).run(() -> cheat("feed", 0)).register();
         Action.builder(id("speed")).label(tr("speed")).icon(Icons.Shape.SPEED).group(Action.Group.OPERATOR)
-            .state(() -> need("ryshelm.cheat", "Нет права")).list(ClientEntry::speeds).register();
+            .state(() -> need("ryshelm.cheat", Tr.tr("ui.wheel.no_perm"))).list(ClientEntry::speeds).register();
         Action.builder(id("invsee")).label(tr("invsee")).icon(Icons.Shape.CHEST).group(Action.Group.OPERATOR)
-            .state(() -> need("ryshelm.invsee", "Нет права")).list(() -> players("invsee", "ryshelm.invsee")).register();
+            .state(() -> need("ryshelm.invsee", Tr.tr("ui.wheel.no_perm"))).list(() -> players("invsee", "ryshelm.invsee")).register();
     }
 
     private static List<Action> kits() {
@@ -122,7 +122,7 @@ public final class ClientEntry {
         for (var e : HelmClient.KITS.entrySet()) {
             String name = e.getKey();
             long left = e.getValue();
-            Action.State st = left == 0 ? Action.State.ready() : left < 0 ? Action.State.off("Набор берут один раз") : Action.State.pause((int) Math.ceil(left / 1000.0));
+            Action.State st = left == 0 ? Action.State.ready() : left < 0 ? Action.State.off(Tr.tr("ui.wheel.kit_once")) : Action.State.pause((int) Math.ceil(left / 1000.0));
             out.add(Action.builder(id("kit/" + name)).label(Component.literal(name)).icon(Icons.Shape.CHEST).group(Action.Group.SERVER).state(() -> st).run(() -> {
                 CompoundTag a = new CompoundTag();
                 a.putString("name", name);

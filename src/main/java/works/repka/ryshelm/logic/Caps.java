@@ -35,14 +35,19 @@ public final class Caps {
      * @return null, если можно, иначе причина для игрока
      */
     public @Nullable String check(boolean operator, boolean permanentBan, Kind kind, long millis) {
+        return check(Lang.ru(), operator, permanentBan, kind, millis);
+    }
+
+    /** То же, причина на языке {@code lang}. */
+    public @Nullable String check(Lang lang, boolean operator, boolean permanentBan, Kind kind, long millis) {
         if (!kind.timed() || operator) return null;
-        if (millis <= 0) return "Нужен срок";
+        if (millis <= 0) return lang.t("ryshelm.caps.need_term");
         if (kind == Kind.BAN) {
-            if (millis == Term.FOREVER) return permanentBan ? null : "Бан навсегда даёт только оператор";
+            if (millis == Term.FOREVER) return permanentBan ? null : lang.t("ryshelm.caps.ban_forever");
             if (permanentBan) return null;
-            return millis > banMax ? "Модератору бан до " + Term.label(banMax) : null;
+            return millis > banMax ? lang.t("ryshelm.caps.ban_max", lang.term(banMax)) : null;
         }
-        if (millis == Term.FOREVER || millis > muteMax) return "Модератору заглушить до " + Term.label(muteMax);
+        if (millis == Term.FOREVER || millis > muteMax) return lang.t("ryshelm.caps.mute_max", lang.term(muteMax));
         return null;
     }
 

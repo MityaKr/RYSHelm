@@ -84,7 +84,7 @@ final class Ui {
     static void team(GuiGraphics g, Theme t, String name, int color, float x, float cy, float room) {
         if (name.isEmpty()) {
             Draw.dot(g, Math.round(x), Math.round(cy - 1.5f), 3, t.c("text.dim"));
-            Draw.label(g, "без команды", x + 6, cy, 12, Weight.REGULAR, t.c("text.muted"));
+            Draw.label(g, Tr.tr("ui.card.no_team"), x + 6, cy, 12, Weight.REGULAR, t.c("text.muted"));
             return;
         }
         Draw.dot(g, Math.round(x), Math.round(cy - 1.5f), 3, 0xFF000000 | color);

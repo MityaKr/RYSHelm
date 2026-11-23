@@ -101,7 +101,7 @@ public final class Afk {
             if (!s.afk && settings.afkMinutes > 0 && idle >= settings.afkMinutes * Term.MINUTE) set(p, s, true);
             if (settings.idleKickMinutes > 0 && idle >= settings.idleKickMinutes * Term.MINUTE && !Roles.atLeast(p, Roles.MODERATOR)) {
                 Helm.log("afk_kick", null, "сервер", p.getUUID(), p.getGameProfile().getName(), Term.label(idle / Term.MINUTE * Term.MINUTE) + " без дела", "");
-                p.connection.disconnect(Component.literal("Вы отошли надолго: " + Term.label(settings.idleKickMinutes * Term.MINUTE) + " без дела. Заходите снова"));
+                p.connection.disconnect(Texts.c(p, "msg.idle_kick", Texts.lang(p).term(settings.idleKickMinutes * Term.MINUTE)));
             }
         }
     }
@@ -110,6 +110,6 @@ public final class Afk {
     public static void tabName(PlayerEvent.TabListNameFormat e) {
         if (!(e.getEntity() instanceof ServerPlayer p) || !afk(p.getUUID())) return;
         Component base = e.getDisplayName() != null ? e.getDisplayName() : p.getName();
-        e.setDisplayName(base.copy().withStyle(ChatFormatting.GRAY).append(Component.literal(" · отошёл").withStyle(ChatFormatting.DARK_GRAY)));
+        e.setDisplayName(base.copy().withStyle(ChatFormatting.GRAY).append(Component.literal(" · ").append(Texts.c(null, "msg.afk.tab")).withStyle(ChatFormatting.DARK_GRAY)));
     }
 }

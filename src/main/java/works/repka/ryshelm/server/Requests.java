@@ -2,7 +2,6 @@ package works.repka.ryshelm.server;
 
 import java.util.UUID;
 import net.minecraft.nbt.CompoundTag;
-import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import org.jetbrains.annotations.Nullable;
@@ -61,7 +60,7 @@ public final class Requests {
             VIEW_TICK.put(p.getUUID(), server.getTickCount());
         } else if (!action.equals("close") && !THROTTLE.allow(p.getUUID(), System.currentTimeMillis())) {
             // окно ждёт ответа на правку: отказ лучше молчания, иначе оно откатит её только через 6 с
-            if (a.getInt("rid") > 0) Sync.ack(p, a.getInt("rid"), "Слишком часто: подождите секунду");
+            if (a.getInt("rid") > 0) Sync.ack(p, a.getInt("rid"), Texts.t(p, "msg.too_fast"));
             return;
         }
         int rid = a.getInt("rid");
@@ -80,14 +79,14 @@ public final class Requests {
                 case "punish" -> punish(p, a);
                 case "revoke" -> Punish.revoke(server, p, a.getLong("id"));
                 case "note" -> note(p, a);
-                case "tp" -> need(p, HelmPerms.TP, () -> online(server, a, t -> Staff.tp(p, t)));
-                case "tphere" -> need(p, HelmPerms.TP, () -> online(server, a, t -> Staff.tphere(p, t)));
+                case "tp" -> need(p, HelmPerms.TP, () -> online(p, a, t -> Staff.tp(p, t)));
+                case "tphere" -> need(p, HelmPerms.TP, () -> online(p, a, t -> Staff.tphere(p, t)));
                 case "tplast" -> need(p, HelmPerms.TP, () -> Staff.tpLast(p, a.getUUID("target")));
                 case "tp_spot" -> need(p, HelmPerms.TP, () -> tpSpot(p, a));
-                case "spectate" -> need(p, HelmPerms.SPECTATE, () -> online(server, a, t -> Staff.spectate(p, t)));
+                case "spectate" -> need(p, HelmPerms.SPECTATE, () -> online(p, a, t -> Staff.spectate(p, t)));
                 case "spectate_return" -> Staff.unspectate(p);
-                case "freeze" -> need(p, HelmPerms.FREEZE, () -> online(server, a, t -> ok(p, Staff.freeze(p, t))));
-                case "invsee" -> need(p, HelmPerms.INVSEE, () -> online(server, a, t -> {
+                case "freeze" -> need(p, HelmPerms.FREEZE, () -> online(p, a, t -> ok(p, Staff.freeze(p, t))));
+                case "invsee" -> need(p, HelmPerms.INVSEE, () -> online(p, a, t -> {
                     Staff.invsee(p, t);
                     return null;
                 }));
@@ -96,7 +95,7 @@ public final class Requests {
                         Staff.enderChest(p, p);
                         return null;
                     });
-                    yield need(p, HelmPerms.ENDER_OTHER, () -> online(server, a, t -> {
+                    yield need(p, HelmPerms.ENDER_OTHER, () -> online(p, a, t -> {
                         Staff.enderChest(p, t);
                         return null;
                     }));
@@ -106,7 +105,7 @@ public final class Requests {
                     return null;
                 });
                 case "kickme" -> need(p, HelmPerms.KICKME, () -> {
-                    p.connection.disconnect(Component.literal("Вы вышли с сервера"));
+                    p.connection.disconnect(Texts.c(p, "msg.left_server"));
                     return null;
                 });
                 case "move" -> need(p, HelmPerms.MOVE, () -> Staff.move(p, a.getUUID("target"), Helm.data().name(a.getUUID("target"))));
@@ -120,11 +119,11 @@ public final class Requests {
                 case "report_close" -> need(p, HelmPerms.REPORTS, () -> Reports.close(p, a.getLong("id"), a.getString("outcome")));
                 case "kit" -> need(p, HelmPerms.KIT, () -> {
                     Kits.Kit k = Kits.get(a.getString("name"));
-                    return k == null ? "Нет такого набора" : Kits.give(p, k, false, null);
+                    return k == null ? Texts.t(p, "msg.kit.no_such") : Kits.give(p, k, false, null);
                 });
                 case "kit_starter" -> need(p, HelmPerms.KIT_MANAGE, () -> {
                     String name = a.getString("name");
-                    if (!name.isEmpty() && Kits.get(name) == null) return "Нет такого набора";
+                    if (!name.isEmpty() && Kits.get(name) == null) return Texts.t(p, "msg.kit.no_such");
                     Helm.settings().starterKit = name;
                     Helm.saveSettings();
                     Helm.log("settings", p, null, "", name.isEmpty() ? "стартовый набор выключен" : "стартовый набор «" + name + "»", "");
@@ -141,7 +140,7 @@ public final class Requests {
                 });
                 case "rules_accept" -> Gate.accept(p);
                 case "rules_quit" -> {
-                    p.connection.disconnect(Component.literal("Правила сервера не приняты"));
+                    p.connection.disconnect(Texts.c(p, "msg.rules_declined"));
                     yield null;
                 }
                 case "staffchat" -> need(p, HelmPerms.STAFF_CHAT, () -> {
@@ -154,7 +153,7 @@ public final class Requests {
             failed = err;
         } catch (RuntimeException e) {
             works.repka.ryshelm.RYSHelm.LOG.error("[ryshelm] действие {} от {} упало", action, p.getGameProfile().getName(), e);
-            failed = "Не получилось: " + e.getMessage();
+            failed = Texts.t(p, "msg.failed", e.getMessage());
             Sync.notice(p, "error", "row", "WARN", failed, "", true);
         }
         if (rid > 0) {
@@ -173,14 +172,14 @@ public final class Requests {
     }
 
     static @Nullable String need(ServerPlayer p, Perms.Node node, Body body) {
-        if (!node.test(p)) return "Нет права: " + node.id();
+        if (!node.test(p)) return Texts.t(p, "msg.no_perm", node.id());
         return body.run();
     }
 
-    static @Nullable String online(MinecraftServer server, CompoundTag a, OnTarget body) {
-        if (!a.hasUUID("target")) return "Игрок не выбран";
-        ServerPlayer t = server.getPlayerList().getPlayer(a.getUUID("target"));
-        if (t == null) return Helm.data().name(a.getUUID("target")) + " не в сети";
+    static @Nullable String online(ServerPlayer p, CompoundTag a, OnTarget body) {
+        if (!a.hasUUID("target")) return Texts.t(p, "msg.no_target");
+        ServerPlayer t = p.server.getPlayerList().getPlayer(a.getUUID("target"));
+        if (t == null) return Texts.t(p, "msg.offline", Helm.data().name(a.getUUID("target")));
         return body.run(t);
     }
 
@@ -192,7 +191,7 @@ public final class Requests {
     /** «Телепорт туда» из жалобы: место, где стоял нарушитель. */
     static @Nullable String tpSpot(ServerPlayer p, CompoundTag a) {
         net.minecraft.server.level.ServerLevel level = Staff.level(p.server, a.getString("dim"));
-        if (level == null) return "Измерение не загружено: " + a.getString("dim");
+        if (level == null) return Texts.t(p, "msg.no_dim", a.getString("dim"));
         var r = works.repka.ryscore.travel.TravelApi.get().teleport(p, works.repka.ryscore.travel.TravelApi.Trip
             .to(works.repka.ryscore.travel.TravelApi.Spot.of(level, a.getDouble("x"), a.getDouble("y"), a.getDouble("z")))
             .reason(works.repka.ryscore.travel.TravelApi.Reason.STAFF).skipCooldown().skipWarmup().skipClaims().build());
@@ -203,27 +202,21 @@ public final class Requests {
 
     static @Nullable String punish(ServerPlayer p, CompoundTag a) {
         Kind kind = Kind.parse(a.getString("kind"));
-        if (kind == null || !a.hasUUID("target")) return "Не понял наказание";
+        if (kind == null || !a.hasUUID("target")) return Texts.t(p, "msg.bad_punish");
         UUID target = a.getUUID("target");
         long millis = kind.timed() ? a.getLong("term") : 0;
-        if (kind.timed() && millis <= 0) return "Нужен срок";
+        if (kind.timed() && millis <= 0) return Texts.t(p, "caps.need_term");
         String err = Punish.give(p.server, p, target, Helm.data().name(target), kind, millis, a.getInt("rule"), a.getString("reason"), a.getBoolean("shown"));
         if (err == null) {
-            String what = switch (kind) {
-                case WARN -> "предупреждён";
-                case MUTE -> "заглушён " + Term.onLabel(millis);
-                case KICK -> "выгнан";
-                case BAN -> "забанен " + Term.onLabel(millis);
-            };
-            ok(p, Helm.data().name(target) + " " + what);
+            ok(p, Texts.t(p, "msg.punished." + kind.id(), Helm.data().name(target), Texts.lang(p).termOn(millis)));
         }
         return err;
     }
 
     static @Nullable String note(ServerPlayer p, CompoundTag a) {
-        if (!HelmPerms.NOTE.test(p)) return "Нет права: " + HelmPerms.NOTE.id();
+        if (!HelmPerms.NOTE.test(p)) return Texts.t(p, "msg.no_perm", HelmPerms.NOTE.id());
         String text = a.getString("text").strip();
-        if (text.isEmpty() || !a.hasUUID("target")) return "Пустая заметка";
+        if (text.isEmpty() || !a.hasUUID("target")) return Texts.t(p, "msg.note_empty");
         if (text.length() > 500) text = text.substring(0, 500);
         HelmData.Note n = new HelmData.Note();
         n.id = Helm.data().id();
@@ -241,7 +234,7 @@ public final class Requests {
 
     static @Nullable String cheat(ServerPlayer p, CompoundTag a) {
         ServerPlayer t = a.hasUUID("target") ? p.server.getPlayerList().getPlayer(a.getUUID("target")) : p;
-        if (t == null) return "Игрок не в сети";
+        if (t == null) return Texts.t(p, "ui.op.not_online");
         String done = switch (a.getString("what")) {
             case "heal" -> Staff.heal(p, t);
             case "feed" -> Staff.feed(p, t);
@@ -251,7 +244,7 @@ public final class Requests {
             case "speed" -> Staff.speed(p, t, a.contains("value") ? a.getFloat("value") : 1f);
             default -> null;
         };
-        if (done == null) return "Не понял действие";
+        if (done == null) return Texts.t(p, "msg.bad_action");
         if (t != p) ok(p, done);
         return null;
     }
@@ -259,15 +252,15 @@ public final class Requests {
     /** Назначить или снять модератора (окно «Роли», команда). */
     public static @Nullable String moderator(@Nullable ServerPlayer actor, UUID target, String name, boolean on) {
         MinecraftServer server = Helm.server();
-        if (server == null) return "Сервер не готов";
+        if (server == null) return Texts.t(actor, "msg.not_ready");
         HelmData data = Helm.data();
         String n = name == null || name.isBlank() ? data.name(target) : name;
         if (on) {
-            if (Roles.opLevel(server, target, null) >= Roles.OP_LEVEL) return n + " уже оператор";
-            if (data.moderators.putIfAbsent(target, n) != null) return n + " уже модератор";
+            if (Roles.opLevel(server, target, null) >= Roles.OP_LEVEL) return Texts.t(actor, "msg.mod.already_op", n);
+            if (data.moderators.putIfAbsent(target, n) != null) return Texts.t(actor, "msg.mod.already", n);
             data.player(target, n);
         } else if (data.moderators.remove(target) == null) {
-            return n + " не модератор";
+            return Texts.t(actor, "msg.mod.not", n);
         }
         Helm.dirty();
         // ядро 1.15 помнит роль 10 с: новая роль видна сразу
@@ -280,8 +273,8 @@ public final class Requests {
     static @Nullable String perm(ServerPlayer p, CompoundTag a) {
         Perms.Node node = Perms.get(a.getString("node"));
         String role = a.getString("role");
-        if (node == null) return "Нет такого права";
-        if (!Roles.PLAYER.equals(role) && !Roles.MODERATOR.equals(role)) return "Столбец оператора не меняется";
+        if (node == null) return Texts.t(p, "msg.perm.no_such");
+        if (!Roles.PLAYER.equals(role) && !Roles.MODERATOR.equals(role)) return Texts.t(p, "msg.perm.operator");
         boolean value = a.getBoolean("value");
         Helm.setCell(node, role, value);
         Helm.log("perm", p, null, "", node.id(), (Roles.MODERATOR.equals(role) ? "модератор" : "игрок") + ": " + (value ? "да" : "нет"));
@@ -327,7 +320,7 @@ public final class Requests {
                     sep(what).append("лестница: ").append(text);
                 }
             } catch (IllegalArgumentException e) {
-                return "Лестница не понята: " + e.getMessage();
+                return Texts.t(p, "msg.ladder_bad", Texts.lang(p).russian() ? e.getMessage() : a.getString("ladder"));
             }
         }
         if (a.contains("ladderDays") && s.ladderDays != a.getInt("ladderDays")) {

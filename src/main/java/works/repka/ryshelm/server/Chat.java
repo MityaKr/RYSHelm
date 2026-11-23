@@ -21,6 +21,7 @@ import net.neoforged.neoforge.event.ServerChatEvent;
 import works.repka.ryshelm.HelmPerms;
 import works.repka.ryshelm.RYSHelm;
 import works.repka.ryshelm.data.HelmData;
+import works.repka.ryshelm.logic.Lang;
 import works.repka.ryshelm.logic.Term;
 
 /**
@@ -121,15 +122,15 @@ public final class Chat {
             case OK -> {
                 return false;
             }
-            case TOO_FAST -> Sync.notice(p, "spam", "row", "CHAT", "Слишком часто: не больше " + s.spamMessages + " строк за " + s.spamSeconds + " с", "", true);
-            case REPEAT -> Sync.notice(p, "spam", "row", "CHAT", "Одно и то же три раза подряд не пройдёт", "", true);
+            case TOO_FAST -> Sync.notice(p, "spam", "row", "CHAT", Texts.t(p, "msg.spam.fast", s.spamMessages, s.spamSeconds), "", true);
+            case REPEAT -> Sync.notice(p, "spam", "row", "CHAT", Texts.t(p, "msg.spam.repeat"), "", true);
             case STRIKE -> {
                 if (s.spamMuteMinutes > 0) {
-                    Punish.give(p.server, null, p.getUUID(), p.getGameProfile().getName(), works.repka.ryshelm.logic.Kind.MUTE, s.spamMuteMinutes * Term.MINUTE, 0, "антиспам", true);
+                    Punish.give(p.server, null, p.getUUID(), p.getGameProfile().getName(), works.repka.ryshelm.logic.Kind.MUTE, s.spamMuteMinutes * Term.MINUTE, 0, Texts.t(p, "msg.spam.who"), true);
                     var last = Helm.data().active(p.getUUID(), works.repka.ryshelm.logic.Kind.MUTE, System.currentTimeMillis());
-                    if (last != null) last.byName = "антиспам";
+                    if (last != null) last.byName = Texts.t(p, "msg.spam.who");
                 } else {
-                    Sync.notice(p, "spam", "row", "CHAT", "Чат придержан: подождите немного", "", true);
+                    Sync.notice(p, "spam", "row", "CHAT", Texts.t(p, "msg.spam.hold"), "", true);
                 }
             }
         }
@@ -137,8 +138,9 @@ public final class Chat {
     }
 
     static void tellMuted(ServerPlayer p, HelmData.Punishment mute) {
-        String until = mute.expires == 0 ? "навсегда" : "ещё " + Term.left(mute.expires - System.currentTimeMillis());
-        Sync.notice(p, "muted", "row", "MUTE", "Вы заглушены · " + until, mute.shown ? Punish.told(mute) : "", true);
+        Lang lang = Texts.lang(p);
+        String until = mute.expires == 0 ? lang.t("ryshelm.term.forever") : lang.t("ryshelm.msg.left", lang.termLeft(mute.expires - System.currentTimeMillis()));
+        Sync.notice(p, "muted", "row", "MUTE", lang.t("ryshelm.msg.muted", until), mute.shown ? Punish.told(lang, mute) : "", true);
     }
 
     public static void onCommand(CommandEvent e) {
@@ -197,10 +199,13 @@ public final class Chat {
 
     /** Строка персоналу: всем, у кого есть право {@code ryshelm.staffchat}, и в лог сервера. */
     public static void staff(MinecraftServer server, String from, String text) {
-        Component line = Component.literal("[Персонал] ").withStyle(ChatFormatting.GOLD)
-            .append(Component.literal(from + ": ").withStyle(ChatFormatting.YELLOW))
-            .append(Component.literal(text).withStyle(ChatFormatting.WHITE));
-        for (ServerPlayer p : server.getPlayerList().getPlayers()) if (HelmPerms.STAFF_CHAT.test(p)) p.sendSystemMessage(line);
+        for (ServerPlayer p : server.getPlayerList().getPlayers()) {
+            if (!HelmPerms.STAFF_CHAT.test(p)) continue;
+            Component line = Texts.c(p, "msg.staff_chat.tag").withStyle(ChatFormatting.GOLD).append(" ")
+                .append(Component.literal(from + ": ").withStyle(ChatFormatting.YELLOW))
+                .append(Component.literal(text).withStyle(ChatFormatting.WHITE));
+            p.sendSystemMessage(line);
+        }
         RYSHelm.LOG.info("[staff] {}: {}", from, text);
     }
 }

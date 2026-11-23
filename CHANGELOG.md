@@ -1,5 +1,23 @@
 # RYSHelm: история версий
 
+## 0.2.8 (23.11.2026)
+
+Окно «Сервер» и сообщения мода на двух языках.
+
+- Весь текст игроку идёт через файлы перевода `ru_ru.json` и `en_us.json`: вкладки, кнопки, подсказки, окно наказания, правила при входе, колесо, уведомления, ответы команд `/rys admin …`, `/report`, `/sc`, экраны бана и выгона. Русский текст прежний, английский новый. Склонения как в семье (`.one`, `.few`, `.many`).
+- Сервер пишет игроку на языке, который тот выбрал в игре. Клиент без мода видит готовый текст на своём языке, а не ключ перевода (экраны отключения, чат персонала и заголовки сундуков идут `translatableWithFallback`). Консоль получает английский.
+- Журнал персонала и логи сервера на диске не менялись. Окно показывает строки журнала на языке игрока; в русском «включил белый список» вместо «включён белый список».
+- В файлах перевода не хватало короткого имени «Корзина» (RU) и «Return» (EN) для колеса, добавлены.
+- Тест `LangFilesTest`: ключи двух файлов совпадают, у склоняемых ключей все формы, подстановки сходятся, в коде окна нет русских строк, каждый ключ из кода есть в файлах, русские сроки слово в слово прежние.
+
+### English
+
+The Server window and all mod messages now come in Russian and English.
+
+- Every player-facing line goes through `ru_ru.json` and `en_us.json`: tabs, buttons, hints, the punishment dialog, rules on join, the action wheel, notices, replies to `/rys admin …`, `/report`, `/sc`, ban and kick screens.
+- The server answers each player in the language they picked in the game. A client without the mod still sees readable text in its language, never a raw key. The console gets English.
+- The staff journal and server logs on disk are unchanged; the window shows journal lines in the viewer's language.
+
 ## 0.2.7 (20.11.2026)
 
 Решение автора 20.11 по вопросу 1 разбора логики 19.11: «Если это работает, можем дать возможность пользоваться». Раздел 9 проверен по коду и тестам и открыт.

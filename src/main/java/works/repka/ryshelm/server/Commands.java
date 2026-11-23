@@ -54,20 +54,20 @@ public final class Commands {
         for (var e : sub.entrySet()) admin.then(e.getValue().get());
         d.register(literal("rys").then(admin).then(rules()).then(sub.get("kit").get()).then(literal("afk").executes(c -> {
             Afk.mark(c.getSource().getPlayerOrException());
-            return ok(c.getSource(), "Отмечены «отошёл»: любое действие снимет отметку");
+            return ok(c.getSource(), tx(c.getSource(), "msg.afk.marked"));
         })));
         d.register(report("report"));
         d.register(literal("sc").requires(s -> Helm.can(s, HelmPerms.STAFF_CHAT))
             .then(argument("text", StringArgumentType.greedyString()).executes(c -> {
                 CommandSourceStack s = c.getSource();
-                String name = s.getPlayer() != null ? s.getPlayer().getGameProfile().getName() : "консоль";
-                if (s.getPlayer() != null && Punish.muted(s.getPlayer().getUUID()) != null) return fail(s, "Вы заглушены");
+                String name = s.getPlayer() != null ? s.getPlayer().getGameProfile().getName() : tx(s, "msg.console");
+                if (s.getPlayer() != null && Punish.muted(s.getPlayer().getUUID()) != null) return fail(s, tx(s, "msg.you_muted"));
                 Chat.staff(s.getServer(), name, StringArgumentType.getString(c, "text"));
                 return 1;
             })).executes(c -> {
                 ServerPlayer p = c.getSource().getPlayerOrException();
                 Chat.toggleStaffChat(p);
-                return ok(c.getSource(), "Чат персонала " + (Chat.staffChatOn(p.getUUID()) ? "включён: строки идут персоналу" : "выключен"));
+                return ok(c.getSource(), tx(c.getSource(), Chat.staffChatOn(p.getUUID()) ? "msg.staff_chat.on" : "msg.staff_chat.off"));
             }));
         if (!ftbEssentials()) {
             for (String root : FTB_ROOTS) {
@@ -107,7 +107,7 @@ public final class Commands {
                 a.putUUID("target", gp.getId());
                 a.putString("text", StringArgumentType.getString(c, "text"));
                 Helm.data().player(gp.getId(), gp.getName());
-                return result(c.getSource(), Requests.note(c.getSource().getPlayerOrException(), a), "Заметка о " + gp.getName() + " записана");
+                return result(c.getSource(), Requests.note(c.getSource().getPlayerOrException(), a), tx(c.getSource(), "msg.note_saved", gp.getName()));
             }))));
         m.put("tp", () -> onPlayer("tp", HelmPerms.TP, (s, t) -> Staff.tp(s.getPlayerOrException(), t)));
         m.put("tphere", () -> onPlayer("tphere", HelmPerms.TP, (s, t) -> Staff.tphere(s.getPlayerOrException(), t)));
@@ -119,7 +119,7 @@ public final class Commands {
         m.put("tpx", () -> literal("tpx").requires(s -> Helm.can(s, HelmPerms.CHEAT)).then(argument("dimension", net.minecraft.commands.arguments.DimensionArgument.dimension()).executes(c ->
             result(c.getSource(), Staff.tpx(c.getSource().getPlayerOrException(), net.minecraft.commands.arguments.DimensionArgument.getDimension(c, "dimension").dimension().location().toString()), ""))));
         m.put("jump", () -> literal("jump").requires(s -> Helm.can(s, HelmPerms.CHEAT)).executes(c -> result(c.getSource(), Staff.jump(c.getSource().getPlayerOrException()), "")));
-        m.put("back", () -> literal("back").requires(s -> Helm.can(s, HelmPerms.SPECTATE)).executes(c -> result(c.getSource(), Staff.unspectate(c.getSource().getPlayerOrException()), "Вернулись на место")));
+        m.put("back", () -> literal("back").requires(s -> Helm.can(s, HelmPerms.SPECTATE)).executes(c -> result(c.getSource(), Staff.unspectate(c.getSource().getPlayerOrException()), tx(c.getSource(), "msg.spectate.back"))));
         m.put("freeze", () -> literal("freeze").requires(s -> Helm.can(s, HelmPerms.FREEZE)).then(argument("player", EntityArgument.player()).executes(c ->
             ok(c.getSource(), Staff.freeze(c.getSource().getPlayerOrException(), EntityArgument.getPlayer(c, "player"))))));
         m.put("invsee", () -> literal("invsee").requires(s -> Helm.can(s, HelmPerms.INVSEE)).then(argument("player", EntityArgument.player()).executes(c -> {
@@ -139,7 +139,8 @@ public final class Commands {
             return 1;
         }));
         m.put("kickme", () -> literal("kickme").requires(s -> Helm.can(s, HelmPerms.KICKME)).executes(c -> {
-            c.getSource().getPlayerOrException().connection.disconnect(Component.literal("Вы вышли с сервера"));
+            ServerPlayer me = c.getSource().getPlayerOrException();
+            me.connection.disconnect(Texts.c(me, "msg.left_server"));
             return 1;
         }));
         m.put("heal", () -> cheat("heal", Staff::heal));
@@ -153,14 +154,14 @@ public final class Commands {
                 ok(c.getSource(), Staff.speed(c.getSource().getPlayerOrException(), EntityArgument.getPlayer(c, "player"), FloatArgumentType.getFloat(c, "times")))))));
         m.put("move", () -> literal("move").requires(s -> Helm.can(s, HelmPerms.MOVE)).then(argument("player", GameProfileArgument.gameProfile()).executes(c -> {
             GameProfile gp = profile(c);
-            return result(c.getSource(), Staff.move(c.getSource().getPlayerOrException(), gp.getId(), gp.getName()), gp.getName() + " окажется здесь при входе");
+            return result(c.getSource(), Staff.move(c.getSource().getPlayerOrException(), gp.getId(), gp.getName()), tx(c.getSource(), "msg.move.done", gp.getName()));
         })));
         m.put("moderator", () -> literal("moderator").requires(s -> Helm.can(s, HelmPerms.ADMIN))
             .then(literal("add").then(argument("player", GameProfileArgument.gameProfile()).executes(c -> moderator(c, true))))
             .then(literal("remove").then(argument("player", GameProfileArgument.gameProfile()).executes(c -> moderator(c, false))))
             .then(literal("list").executes(c -> {
                 Map<java.util.UUID, String> mods = Helm.data().moderators;
-                return ok(c.getSource(), mods.isEmpty() ? "Модераторов нет" : "Модераторы: " + String.join(", ", mods.values()));
+                return ok(c.getSource(), mods.isEmpty() ? tx(c.getSource(), "msg.mod.none") : tx(c.getSource(), "msg.mod.list", String.join(", ", mods.values())));
             })));
         m.put("journal", () -> literal("journal").requires(s -> Helm.can(s, HelmPerms.JOURNAL)).executes(c -> journal(c.getSource(), 10))
             .then(argument("count", IntegerArgumentType.integer(1, 100)).executes(c -> journal(c.getSource(), IntegerArgumentType.getInteger(c, "count")))));
@@ -174,19 +175,20 @@ public final class Commands {
         m.put("kit", () -> literal("kit").requires(s -> Helm.can(s, HelmPerms.KIT)).executes(c -> {
             CommandSourceStack s = c.getSource();
             var all = Kits.all();
-            if (all.isEmpty()) return ok(s, "Наборов нет");
+            if (all.isEmpty()) return ok(s, tx(s, "ui.wheel.no_kits"));
             ServerPlayer p = s.getPlayer();
             for (Kits.Kit k : all) {
                 long left = p == null ? 0 : Kits.left(p, k);
-                String state = left == 0 ? "можно взять" : left == Long.MAX_VALUE ? "уже взят" : "через " + Term.left(left);
-                s.sendSuccess(() -> Component.literal(k.name + " · " + works.repka.ryshelm.logic.KitRule.label(k.cooldown) + " · " + state), false);
+                var lang = Texts.lang(s);
+                String state = left == 0 ? lang.t("ryshelm.msg.kit.ready") : left == Long.MAX_VALUE ? lang.t("ryshelm.msg.kit.taken") : lang.t("ryshelm.msg.kit.in", lang.termLeft(left));
+                s.sendSuccess(() -> Component.literal(k.name + " · " + lang.kitRule(k.cooldown) + " · " + state), false);
             }
             return all.size();
         }).then(argument("name", StringArgumentType.word()).suggests((c, b) -> net.minecraft.commands.SharedSuggestionProvider.suggest(Kits.all().stream().map(k -> k.name), b))
             .executes(c -> {
                 Kits.Kit k = Kits.get(StringArgumentType.getString(c, "name"));
-                if (k == null) return fail(c.getSource(), "Нет такого набора");
-                return result(c.getSource(), Kits.give(c.getSource().getPlayerOrException(), k, false, null), "Набор «" + k.name + "» в инвентаре");
+                if (k == null) return fail(c.getSource(), tx(c.getSource(), "msg.kit.no_such"));
+                return result(c.getSource(), Kits.give(c.getSource().getPlayerOrException(), k, false, null), tx(c.getSource(), "msg.kit.given_self", k.name));
             })));
         m.put("kits", () -> literal("kits").requires(s -> Helm.can(s, HelmPerms.KIT_MANAGE))
             .then(literal("create").then(argument("name", StringArgumentType.word()).executes(c -> kitCreate(c, works.repka.ryshelm.logic.KitRule.ONCE))
@@ -195,34 +197,34 @@ public final class Commands {
                     try {
                         cd = works.repka.ryshelm.logic.KitRule.parse(StringArgumentType.getString(c, "cooldown"));
                     } catch (IllegalArgumentException e) {
-                        return fail(c.getSource(), "Пауза: once, 0, 30m, 1d");
+                        return fail(c.getSource(), tx(c.getSource(), "msg.kit.bad_cooldown"));
                     }
                     return kitCreate(c, cd);
                 }))))
             .then(literal("delete").then(argument("name", StringArgumentType.word()).executes(c -> {
                 boolean done = Kits.delete(c.getSource().getPlayerOrException(), StringArgumentType.getString(c, "name"));
-                return done ? ok(c.getSource(), "Набор удалён") : fail(c.getSource(), "Нет такого набора");
+                return done ? ok(c.getSource(), tx(c.getSource(), "msg.kit.deleted")) : fail(c.getSource(), tx(c.getSource(), "msg.kit.no_such"));
             })))
             .then(literal("give").then(argument("player", EntityArgument.player()).then(argument("name", StringArgumentType.word()).executes(c -> {
                 Kits.Kit k = Kits.get(StringArgumentType.getString(c, "name"));
-                if (k == null) return fail(c.getSource(), "Нет такого набора");
+                if (k == null) return fail(c.getSource(), tx(c.getSource(), "msg.kit.no_such"));
                 ServerPlayer target = EntityArgument.getPlayer(c, "player");
-                return result(c.getSource(), Kits.give(target, k, true, c.getSource().getPlayer()), "Набор «" + k.name + "» выдан " + target.getGameProfile().getName());
+                return result(c.getSource(), Kits.give(target, k, true, c.getSource().getPlayer()), tx(c.getSource(), "msg.kit.given", k.name, target.getGameProfile().getName()));
             }))))
             .then(literal("starter").then(argument("name", StringArgumentType.word()).executes(c -> {
                 String name = StringArgumentType.getString(c, "name");
                 if (name.equals("none")) name = "";
-                else if (Kits.get(name) == null) return fail(c.getSource(), "Нет такого набора");
+                else if (Kits.get(name) == null) return fail(c.getSource(), tx(c.getSource(), "msg.kit.no_such"));
                 Helm.settings().starterKit = name.toLowerCase(java.util.Locale.ROOT);
                 Helm.saveSettings();
                 Helm.log("settings", c.getSource().getPlayer(), null, "", name.isEmpty() ? "стартовый набор выключен" : "стартовый набор «" + name + "»", "");
-                return ok(c.getSource(), name.isEmpty() ? "Стартовый набор выключен" : "Стартовый набор: " + name);
+                return ok(c.getSource(), name.isEmpty() ? tx(c.getSource(), "msg.kit.starter.off") : tx(c.getSource(), "msg.kit.starter", name));
             }))));
         m.put("reload", () -> literal("reload").requires(s -> Helm.can(s, HelmPerms.ADMIN)).executes(c -> {
             Helm.loadRules();
             Gate.settingsChanged(c.getSource().getServer());
             Sync.helloAll(c.getSource().getServer());
-            return ok(c.getSource(), "Правила перечитаны: " + Helm.rules().rules().size() + " пунктов, версия " + Helm.rules().version());
+            return ok(c.getSource(), tx(c.getSource(), "msg.rules.reloaded", Texts.n(c.getSource().getPlayer(), "ui.set.rules.items", Helm.rules().rules().size()), Helm.rules().version()));
         }));
         return m;
     }
@@ -232,14 +234,14 @@ public final class Commands {
         return literal("rules").executes(c -> {
             CommandSourceStack s = c.getSource();
             var r = Helm.rules();
-            s.sendSuccess(() -> Component.literal(r.title().isEmpty() ? "Правила сервера" : r.title()).withStyle(ChatFormatting.GOLD), false);
+            s.sendSuccess(() -> Component.literal(r.title().isEmpty() ? tx(s, "ui.rules.title") : r.title()).withStyle(ChatFormatting.GOLD), false);
             for (var rule : r.rules()) s.sendSuccess(() -> Component.literal(rule.number() + ". " + rule.title()).withStyle(ChatFormatting.WHITE)
                 .append(rule.detail().isEmpty() ? Component.empty() : Component.literal("\n   " + rule.detail()).withStyle(ChatFormatting.GRAY)), false);
             return 1;
         }).then(literal("accept").executes(c -> {
             ServerPlayer p = c.getSource().getPlayerOrException();
             Gate.accept(p);
-            return ok(c.getSource(), "Правила приняты");
+            return ok(c.getSource(), tx(c.getSource(), "msg.rules.accepted"));
         }));
     }
 
@@ -293,7 +295,7 @@ public final class Commands {
         try {
             return Term.parse(StringArgumentType.getString(c, "term"));
         } catch (IllegalArgumentException e) {
-            throw new com.mojang.brigadier.exceptions.SimpleCommandExceptionType(Component.literal("Срок: 10m, 1h, 1d, 7d или perm")).create();
+            throw new com.mojang.brigadier.exceptions.SimpleCommandExceptionType(Component.literal(tx(c.getSource(), "msg.bad_term"))).create();
         }
     }
 
@@ -315,44 +317,38 @@ public final class Commands {
         String reason = r[0] > 0 ? reasonRaw.strip().substring(r[1]) : reasonRaw;
         Helm.data().player(gp.getId(), gp.getName());
         String err = Punish.give(c.getSource().getServer(), c.getSource().getPlayer(), gp.getId(), gp.getName(), kind, millis, r[0], reason, true);
-        String done = switch (kind) {
-            case WARN -> gp.getName() + " предупреждён";
-            case MUTE -> gp.getName() + " заглушён " + Term.onLabel(millis);
-            case KICK -> gp.getName() + " выгнан";
-            case BAN -> gp.getName() + " забанен " + Term.onLabel(millis);
-        };
-        return result(c.getSource(), err, done);
+        return result(c.getSource(), err, tx(c.getSource(), "msg.punished." + kind.id(), gp.getName(), Texts.lang(c.getSource()).termOn(millis)));
     }
 
     private static int lift(CommandContext<CommandSourceStack> c, Kind kind) throws CommandSyntaxException {
         GameProfile gp = profile(c);
         String err = Punish.lift(c.getSource().getServer(), c.getSource().getPlayer(), gp.getId(), kind);
-        return result(c.getSource(), err, gp.getName() + (kind == Kind.BAN ? ": бан снят" : ": заглушение снято"));
+        return result(c.getSource(), err, tx(c.getSource(), kind == Kind.BAN ? "msg.lifted.ban" : "msg.lifted.mute", gp.getName()));
     }
 
     private static int kitCreate(CommandContext<CommandSourceStack> c, int cooldown) throws CommandSyntaxException {
         String key = Kits.create(c.getSource().getPlayerOrException(), StringArgumentType.getString(c, "name"), cooldown);
-        if (key == null) return fail(c.getSource(), "Имя набора: латиница, цифры, _ и -, до 24 знаков");
-        if (key.isEmpty()) return fail(c.getSource(), "Инвентарь пуст: набор собирается из ваших вещей");
-        return ok(c.getSource(), "Набор «" + key + "» собран из инвентаря · " + works.repka.ryshelm.logic.KitRule.label(cooldown));
+        if (key == null) return fail(c.getSource(), tx(c.getSource(), "msg.kit.bad_name"));
+        if (key.isEmpty()) return fail(c.getSource(), tx(c.getSource(), "msg.kit.empty_inv"));
+        return ok(c.getSource(), tx(c.getSource(), "msg.kit.created", key, Texts.lang(c.getSource()).kitRule(cooldown)));
     }
 
     private static int moderator(CommandContext<CommandSourceStack> c, boolean on) throws CommandSyntaxException {
         GameProfile gp = profile(c);
         String err = Requests.moderator(c.getSource().getPlayer(), gp.getId(), gp.getName(), on);
-        return result(c.getSource(), err, gp.getName() + (on ? " теперь модератор" : " больше не модератор"));
+        return result(c.getSource(), err, tx(c.getSource(), on ? "msg.mod.added" : "msg.mod.removed", gp.getName()));
     }
 
     private static int history(CommandContext<CommandSourceStack> c) throws CommandSyntaxException {
         GameProfile gp = profile(c);
         List<HelmData.Punishment> list = Helm.data().of(gp.getId());
-        if (list.isEmpty()) return ok(c.getSource(), gp.getName() + ": наказаний нет");
+        if (list.isEmpty()) return ok(c.getSource(), tx(c.getSource(), "msg.history.none", gp.getName()));
         long now = System.currentTimeMillis();
+        var lang = Texts.lang(c.getSource());
         for (HelmData.Punishment p : list) {
-            String term = p.kind.timed() ? " " + (p.expires == 0 ? "навсегда" : Term.label(p.expires - p.created)) : "";
-            String state = p.revoked > 0 ? " · снято" : p.active(now) ? " · действует" : "";
-            c.getSource().sendSuccess(() -> Component.literal("#" + p.id + " " + Sync.dateTime(p.created) + " " + p.kind.noun() + term + state + " · " + p.byName
-                + (Punish.note(p).isEmpty() ? "" : " · " + Punish.note(p))), false);
+            String state = p.revoked > 0 ? " · " + lang.t("ryshelm.ui.card.revoked") : p.active(now) ? " · " + lang.t("ryshelm.ui.card.active") : "";
+            c.getSource().sendSuccess(() -> Component.literal("#" + p.id + " " + Sync.dateTime(p.created) + " " + Views.history(lang, p, false) + state + " · " + p.byName
+                + (p.reason.isEmpty() ? "" : " · " + p.reason)), false);
         }
         return list.size();
     }
@@ -367,6 +363,11 @@ public final class Commands {
                 + (e.n.isEmpty() ? "" : " · " + e.n.replaceAll("#\\d+$", ""))).withStyle(ChatFormatting.GRAY), false);
         }
         return list.size();
+    }
+
+    /** Текст ответа на языке того, кто дал команду (консоли по-английски). */
+    static String tx(CommandSourceStack s, String key, Object... args) {
+        return Texts.t(s.getPlayer(), key, args);
     }
 
     static int ok(CommandSourceStack s, String text) {

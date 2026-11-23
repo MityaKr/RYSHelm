@@ -27,7 +27,7 @@ public final class RulesScreen extends ScaledScreen {
     private int mx, my;
 
     public RulesScreen() {
-        super(Component.literal("Правила сервера"));
+        super(Component.translatable("ryshelm.ui.rules.title"));
     }
 
     /** Открыть окно правил: данные придут с сервера вкладкой «Правила». */
@@ -48,7 +48,7 @@ public final class RulesScreen extends ScaledScreen {
     public void removed() {
         View.close();
         if (HelmClient.rulesPending) {
-            Notice.row(Notice.HELM, "rules").icon(Icons.Shape.BOOK).title("Примите правила сервера").lines("клик откроет правила")
+            Notice.row(Notice.HELM, "rules").icon(Icons.Shape.BOOK).title(Tr.tr("ui.rules.notice")).lines(Tr.tr("ui.rules.notice.line"))
                 .key(ClientEntry::keyName).action(RulesScreen::request).bad().show();
         }
         super.removed();
@@ -81,12 +81,12 @@ public final class RulesScreen extends ScaledScreen {
         Draw.round(g, x + 13.5f, y + 12.5f, 20, 20, 5f, Draw.mix(t.c("state.ok"), 0xFF000000, 0.25f));
         Icons.draw(g, Icons.Shape.SERVER, x + 18.5f, y + 17.5f, 10, 0xFFFFFFFF);
         String server = r.getString("server").isEmpty() ? HelmClient.server : r.getString("server");
-        Draw.label(g, Draw.ellipsize("Добро пожаловать на " + server, W - 50, 20, Weight.DISPLAY), x + 39.5f, y + 18, 20, Weight.DISPLAY, t.c("text.primary"));
+        Draw.label(g, Draw.ellipsize(Tr.tr("ui.rules.welcome", server), W - 50, 20, Weight.DISPLAY), x + 39.5f, y + 18, 20, Weight.DISPLAY, t.c("text.primary"));
         long date = r.getLong("date");
-        Draw.label(g, "Правила сервера" + (date > 0 ? " от " + Words.dayMonth(date) : "") + " · прочитайте до игры", x + 39.5f, y + 29.5f, 13, Weight.REGULAR, t.c("text.muted"));
+        Draw.label(g, Tr.tr("ui.rules.title") + (date > 0 ? " " + Tr.tr("ui.rules.dated", Words.dayMonth(date)) : "") + " · " + Tr.tr("ui.rules.read_first"), x + 39.5f, y + 29.5f, 13, Weight.REGULAR, t.c("text.muted"));
         Draw.round(g, x + 13, y + 41, W - 26, 0.5f, 0.02f, t.c("panel.border"));
         int cy = y + 49;
-        if (items.isEmpty()) Draw.label(g, "Загружаем правила…", x + 13.5f, cy + 6, 13, Weight.REGULAR, t.c("text.muted"));
+        if (items.isEmpty()) Draw.label(g, Tr.tr("ui.rules.loading"), x + 13.5f, cy + 6, 13, Weight.REGULAR, t.c("text.muted"));
         for (Tag xi : items) {
             CompoundTag i = (CompoundTag) xi;
             Draw.label(g, Integer.toString(i.getInt("n")), x + 13.5f, cy + 5, 14, Weight.SEMIBOLD, t.c("text.primary"));
@@ -103,17 +103,17 @@ public final class RulesScreen extends ScaledScreen {
         Draw.round(g, x + 13, cy, W - 26, 0.5f, 0.02f, t.c("panel.border"));
         cy += 8;
         Kit.checkbox(g, t, hits, x + 13, cy, 9, agreed, false, mx, my, () -> agreed = !agreed);
-        Draw.label(g, "Я прочитал правила и согласен", x + 27, cy + 4.5f, 13.5f, Weight.MEDIUM, t.c("text.primary"));
-        hits.add(x + 13, cy - 2, (int) Draw.labelWidth("Я прочитал правила и согласен", 13.5f, Weight.MEDIUM) + 16, 13, b -> agreed = !agreed);
+        Draw.label(g, Tr.tr("ui.rules.agree"), x + 27, cy + 4.5f, 13.5f, Weight.MEDIUM, t.c("text.primary"));
+        hits.add(x + 13, cy - 2, (int) Draw.labelWidth(Tr.tr("ui.rules.agree"), 13.5f, Weight.MEDIUM) + 16, 13, b -> agreed = !agreed);
         cy += 17;
-        cy += Ui.paragraph(g, "Пока правила не приняты, можно ходить и читать чат. Строить, открывать, писать и телепортироваться нельзя.", x + 13.5f, cy, W - 27, 12.5f, t.c("text.body"), 3);
+        cy += Ui.paragraph(g, Tr.tr("ui.rules.pending.text"), x + 13.5f, cy, W - 27, 12.5f, t.c("text.body"), 3);
         int by = y + h - 31;
-        Ui.primary(g, t, hits, x + W - 13 - 58, by, 58, 21, null, "Принимаю", mx, my, agreed && !items.isEmpty() ? () -> {
+        Ui.primary(g, t, hits, x + W - 13 - 58, by, 58, 21, null, Tr.tr("ui.rules.accept"), mx, my, agreed && !items.isEmpty() ? () -> {
             HelmClient.action("rules_accept");
             HelmClient.rulesPending = false;
             onClose();
         } : null);
-        String quit = "Выйти с сервера";
+        String quit = Tr.tr("ui.rules.quit");
         float qw = Draw.labelWidth(quit, 12.5f, Weight.MEDIUM) + 10;
         int qx = (int) (x + W - 13 - 58 - 12 - qw);
         boolean hot = Kit.over(mx, my, qx, by, (int) qw, 21);

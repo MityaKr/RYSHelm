@@ -439,7 +439,7 @@ public final class Helm {
         if (!settings.welcome.isBlank()) Sync.notice(p, "welcome", "row", "INFO", settings.welcome, "", false);
         if (works.repka.ryshelm.HelmPerms.REPORTS.test(p)) {
             long open = data.reports.stream().filter(r -> r.state == HelmData.Report.State.NEW).count();
-            if (open > 0) Sync.notice(p, "reports", "card", "FLAG", "Жалобы ждут: " + open, "Окно «Сервер», вкладка «Жалобы»", false);
+            if (open > 0) Sync.notice(p, "reports", "card", "FLAG", Texts.t(p, "msg.reports_waiting", open), Texts.t(p, "msg.reports_waiting.line"), false);
         }
         Sync.broadcastRoster();
     }

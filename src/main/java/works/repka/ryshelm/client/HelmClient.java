@@ -176,11 +176,11 @@ public final class HelmClient {
         long now = System.currentTimeMillis();
         if (!DONE.isEmpty()) DONE.entrySet().removeIf(e -> {
             if (now - e.getValue().since < Pending.TIMEOUT) return false;
-            e.getValue().done.accept("Сервер не ответил");
+            e.getValue().done.accept(Tr.tr("ui.no_answer"));
             return true;
         });
         if (!PENDING.any() || PENDING.expire(now).isEmpty()) return;
-        Notice.row(Notice.HELM, "error").icon(Icons.Shape.WARN).title("Сервер не ответил: правка не сохранена").bad().show();
+        Notice.row(Notice.HELM, "error").icon(Icons.Shape.WARN).title(Tr.tr("ui.no_answer.notice")).bad().show();
     }
 
     public static void onTarget(String action, java.util.UUID target) {

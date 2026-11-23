@@ -111,6 +111,8 @@ test {
     useJUnitPlatform()
     // Копия файлов FTB сервера RepYS (18.11): проверка шага admin без неё пропускается.
     systemProperty 'ryshelm.fixtures', project.findProperty('fixtures') ?: project.file('../../_shared/_saved/fixtures/ftb-2026-11-18').absolutePath
+    // LangFilesTest читает файлы перевода и код окна из папки проекта
+    systemProperty 'ryshelm.root', project.projectDir.absolutePath
 }
 
 processResources {

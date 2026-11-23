@@ -85,7 +85,7 @@ public final class Gate {
         Long last = REMINDED.get(p.getUUID());
         if (last != null && now - last < 5000) return;
         REMINDED.put(p.getUUID(), now);
-        Sync.notice(p, "rules", "row", "BOOK", "Примите правила сервера", "клик откроет правила", true);
+        Sync.notice(p, "rules", "row", "BOOK", Texts.t(p, "ui.rules.notice"), Texts.t(p, "ui.rules.notice.line"), true);
     }
 
     /**
@@ -104,8 +104,7 @@ public final class Gate {
             if (target == null || target == from || !newbie(target)) return null;
             var teams = works.repka.ryscore.team.TeamsApi.get();
             if (teams.teamOf(target.getUUID()).equals(teams.teamOf(from.getUUID()))) return null;
-            return target.getGameProfile().getName() + " новичок: первые " + Term.plural(Helm.settings().newbieHours, "час", "часа", "часов")
-                + " звать к себе может только его команда";
+            return Texts.t(from, "msg.newbie", target.getGameProfile().getName(), Texts.n(from, "msg.hours", Helm.settings().newbieHours));
         }
         return null;
     }
