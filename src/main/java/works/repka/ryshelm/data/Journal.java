@@ -39,6 +39,19 @@ public final class Journal {
      */
     public static final String D_ON = "включил", D_OFF = "выключил", WL_ON = "включён", WL_OFF = "выключен", WL_ADD = "добавил", WL_REMOVE = "убрал";
 
+    /**
+     * Все виды записей: у каждого глагол {@code ryshelm.journal.verb.<вид>} в обоих файлах перевода (0.2.12,
+     * {@code JournalLineTest}). Новый вид записи добавлять сюда, в {@link #category} и в файлы перевода.
+     */
+    public static final List<String> TYPES = List.of(
+        "warn", "mute", "unmute", "kick", "ban", "unban", "join_banned", "note",
+        "invsee", "invsee_edit", "enderchest", "spectate", "spectate_start", "freeze", "unfreeze", "tp", "tphere", "move",
+        "fly", "god", "heal", "feed", "speed", "extinguish", "kit_give",
+        "place", "place_set", "place_del",
+        "moderator_add", "moderator_remove", "perm", "settings", "caps", "kit_create", "kit_delete", "whitelist",
+        "report", "report_take", "report_close",
+        "afk_kick");
+
     /** Раздел фильтра окна (макет 12). */
     public enum Category { PUNISH, WATCH, PLACES, ROLES, REPORTS, OTHER }
 

@@ -7,7 +7,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.Locale;
 import works.repka.ryshelm.logic.Term;
 
-/** Слова окна «Сервер»: измерения, «в сети 2 ч», «3 дня назад», глаголы журнала. */
+/** Слова окна «Сервер»: измерения, «в сети 2 ч», «3 дня назад», значки журнала. */
 final class Words {
     private static final ZoneId ZONE = ZoneId.systemDefault();
     private static final DateTimeFormatter HM = DateTimeFormatter.ofPattern("HH:mm").withZone(ZONE);
@@ -92,12 +92,6 @@ final class Words {
             case "moderator" -> Tr.tr("ui.role.moderator");
             default -> Tr.tr("ui.role.player");
         };
-    }
-
-    /** Глагол записи журнала (макет 12): «заглушил», «открыл инвентарь». */
-    static String verb(String type) {
-        String key = "ryshelm.journal.verb." + type;
-        return net.minecraft.locale.Language.getInstance().has(key) ? Tr.lang().t(key) : type;
     }
 
     /** Значок записи журнала. */

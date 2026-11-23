@@ -23,9 +23,8 @@ import works.repka.ryscore.ui.Kit;
 import works.repka.ryscore.ui.ScaledScreen;
 import works.repka.ryscore.ui.Scroller;
 import works.repka.ryscore.ui.Type.Weight;
-import works.repka.ryshelm.data.Journal;
+import works.repka.ryshelm.data.JournalLine;
 import works.repka.ryshelm.logic.Kind;
-import works.repka.ryshelm.logic.Lang;
 import works.repka.ryshelm.logic.Term;
 
 /**
@@ -1153,62 +1152,9 @@ public final class ServerScreen extends ScaledScreen {
         }
     }
 
-    /** Строка записи частями: жирное имя, глагол, жирная цель, продолжение (макет 12). */
+    /** Строка записи частями: жирное имя, глагол, жирная цель, продолжение (макет 12); слова даёт {@link JournalLine}. */
     static List<String[]> line(CompoundTag e) {
-        String type = e.getString("type"), a = e.getString("a"), p = e.getString("p"), d = e.getString("d");
-        List<String[]> out = new ArrayList<>();
-        // строки журнала на диске по-русски (журнал не меняется): известные слова поля d переводятся здесь
-        switch (type) {
-            case "report" -> segs(out, tr("journal.line.report"), a, p, d, false);
-            case "join_banned" -> segs(out, tr("journal.line.join_banned"), a, p, d, false);
-            case "fly", "god" -> {
-                String verb = tr("journal.toggle." + (d.equals(Journal.D_ON) ? "on" : d.equals(Journal.D_OFF) ? "off" : "switch"));
-                String what = tr("journal.toggle." + type);
-                segs(out, Lang.format(tr(p.isEmpty() ? "journal.line.toggle.self" : "journal.line.toggle.other"), "%1$s", "%2$s", verb, what), a, p, d, false);
-            }
-            case "kit_create", "kit_delete" -> segs(out, tr("journal.line." + type), a, p, d, true);
-            case "kit_give" -> segs(out, tr("journal.line.kit_give"), a, p, d, false);
-            case "whitelist" -> {
-                String k = switch (d) {
-                    case Journal.WL_ON -> "on";
-                    case Journal.WL_OFF -> "off";
-                    case Journal.WL_ADD -> "add";
-                    case Journal.WL_REMOVE -> "remove";
-                    default -> "other";
-                };
-                segs(out, tr("journal.line.whitelist." + k), a, p, d, false);
-            }
-            case "settings", "perm", "caps", "afk_kick" -> {
-                out.add(new String[] {a, "b"});
-                out.add(new String[] {" " + Words.verb(type) + " " + d, ""});
-            }
-            default -> {
-                out.add(new String[] {a, "b"});
-                out.add(new String[] {" " + Words.verb(type) + (p.isEmpty() ? "" : " "), ""});
-                if (!p.isEmpty()) out.add(new String[] {p, "b"});
-                if (!d.isEmpty()) out.add(new String[] {" " + d, ""});
-            }
-        }
-        return out;
-    }
-
-    /**
-     * Строка журнала по шаблону: {@code %1$s} кто (жирным), {@code %2$s} кого (жирным), {@code %3$s} продолжение
-     * (жирным, если {@code boldDetail}).
-     */
-    static void segs(List<String[]> out, String template, String a, String p, String d, boolean boldDetail) {
-        java.util.regex.Matcher m = java.util.regex.Pattern.compile("%(\\d)\\$s").matcher(template);
-        int last = 0;
-        while (m.find()) {
-            if (m.start() > last) out.add(new String[] {template.substring(last, m.start()), ""});
-            switch (m.group(1)) {
-                case "1" -> out.add(new String[] {a, "b"});
-                case "2" -> out.add(new String[] {p, "b"});
-                default -> out.add(new String[] {d, boldDetail ? "b" : ""});
-            }
-            last = m.end();
-        }
-        if (last < template.length()) out.add(new String[] {template.substring(last), ""});
+        return JournalLine.parts(Tr.lang(), e.getString("type"), e.getString("a"), e.getString("p"), e.getString("d"));
     }
 
     // ---- роли (макет 11) ----

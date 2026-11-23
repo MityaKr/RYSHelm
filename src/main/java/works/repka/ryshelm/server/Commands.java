@@ -26,6 +26,7 @@ import works.repka.ryscore.perm.Perms;
 import works.repka.ryshelm.HelmPerms;
 import works.repka.ryshelm.data.HelmData;
 import works.repka.ryshelm.data.Journal;
+import works.repka.ryshelm.data.JournalLine;
 import works.repka.ryshelm.logic.Kind;
 import works.repka.ryshelm.logic.Said;
 import works.repka.ryshelm.logic.Term;
@@ -362,7 +363,8 @@ public final class Commands {
         for (int i = list.size() - 1; i >= 0; i--) {
             Journal.Entry e = list.get(i);
             String d = e.detail(lang), n = e.note(lang);
-            s.sendSuccess(() -> Component.literal(Sync.dateTime(e.t) + " " + Texts.who(lang, e.an) + " " + e.type + " " + e.pn + (d.isEmpty() ? "" : " " + d)
+            String line = JournalLine.text(lang, e.type, Texts.who(lang, e.an), e.pn, d);
+            s.sendSuccess(() -> Component.literal(Sync.dateTime(e.t) + " " + line
                 + (n.isEmpty() ? "" : " · " + n)).withStyle(ChatFormatting.GRAY), false);
         }
         return list.size();

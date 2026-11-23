@@ -1,5 +1,11 @@
 # RYSHelm: история версий
 
+## 0.2.12 (24.11.2026)
+
+- `/rys admin journal` пишет действие словами, как окно «Сервер»: «Dev собрал набор check1123» вместо «Dev kit_create check1123». Окно и команда строят строку журнала одним кодом, на языке читателя, старые записи тоже.
+- Глаголы журнала есть у всех видов записей, включая запасные «Места»; вид без перевода (запись будущей версии) показывается словами без подчёркиваний. Тест проверяет, что каждый вид, который пишет код, переведён на оба языка.
+- EN: `/rys admin journal` shows the action in words, like the Server window: "Dev created kit check1123" instead of "Dev kit_create check1123". Every journal entry type has a verb in both languages (checked by a test); an unknown type is shown as words.
+
 ## 0.2.11 (24.11.2026)
 
 - Иконка мода (витраж «Роза») в списке модов игры; файл иконки для страницы CurseForge лежит в `docs/icon-400.png`.
