@@ -1,10 +1,13 @@
 package works.repka.ryshelm.client;
 
+import java.util.Map;
 import java.util.UUID;
+import java.util.WeakHashMap;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.PlayerFaceRenderer;
 import net.minecraft.client.multiplayer.PlayerInfo;
+import net.minecraft.network.chat.Component;
 import net.minecraft.client.resources.DefaultPlayerSkin;
 import net.minecraft.resources.ResourceLocation;
 import org.jetbrains.annotations.Nullable;
@@ -156,7 +159,30 @@ final class Ui {
         return Math.round(w);
     }
 
-    /** Поле ввода в рамке темы; рисует само поле игры внутри. */
+    /** Полный текст подсказки поля и то, что из него сейчас показано (обрезано под ширину). */
+    private static final Map<Field, String> HINTS = new WeakHashMap<>(), SHOWN = new WeakHashMap<>();
+
+    /** Подсказка пустого поля: в узком поле она обрезается с многоточием, а не уходит под край и плашку клавиши. */
+    static void hint(Field f, String full) {
+        HINTS.put(f, full);
+        SHOWN.put(f, full);
+        f.setHint(Component.literal(full));
+    }
+
+    /** Подогнать подсказку под ширину поля; true, если она обрезана (тогда полную стоит показать подсказкой). */
+    private static boolean fitHint(Field f, float room) {
+        String full = HINTS.get(f);
+        if (full == null) return false;
+        // кегль подсказки как у Field ядра: 13 по макету, обычное начертание
+        String shown = Draw.ellipsize(full, room, 13f, Weight.REGULAR);
+        if (!shown.equals(SHOWN.get(f))) {
+            SHOWN.put(f, shown);
+            f.setHint(Component.literal(shown));
+        }
+        return !shown.equals(full);
+    }
+
+    /** Поле ввода в рамке темы; рисует само поле игры внутри. Рамка одна: у темы с фаской своя, у плоской скруглённая. */
     static void input(GuiGraphics g, Theme t, Field f, int x, int y, int w, int h, int mx, int my) {
         if (t.beveled()) t.input(g, x, y, w, h, f.isFocused());
         else Draw.roundBox(g, x, y, w, h, 4f, t.c("input.bg"), f.isFocused() ? t.c("text.muted") : t.c("input.border"));
@@ -166,14 +192,16 @@ final class Ui {
         f.setHeight(10);
         f.setVisible(true);
         f.setTextColor(t.c("input.fg") & 0xFFFFFF);
+        fitHint(f, w - 10);
         f.render(g, mx, my, 0);
     }
 
     /**
      * Поле поиска, как в окне карты: лупа всегда слева, текст и подсказка начинаются после неё, справа место под плашку
-     * клавиши «/» (видна, пока поле пустое и без курсора).
+     * клавиши «/» (видна, пока поле пустое и без курсора). Подсказка обрезается перед плашкой; возвращает true, если она
+     * обрезана и курсор над полем: тогда окно показывает полную подсказкой.
      */
-    static void search(GuiGraphics g, Theme t, Field f, int x, int y, int w, int h, int mx, int my) {
+    static boolean search(GuiGraphics g, Theme t, Field f, int x, int y, int w, int h, int mx, int my) {
         if (t.beveled()) t.input(g, x, y, w, h, f.isFocused());
         else Draw.roundBox(g, x, y, w, h, 4f, t.c("input.bg"), f.isFocused() ? t.c("text.muted") : t.c("input.border"));
         Icons.draw(g, Icons.Shape.MAGNIFIER, x + 5, y + (h - 8) / 2f, 8, t.c("text.muted"));
@@ -183,13 +211,17 @@ final class Ui {
         f.setHeight(10);
         f.setVisible(true);
         f.setTextColor(t.c("input.fg") & 0xFFFFFF);
+        // до плашки «/» (x + w - 12) остаётся зазор в 2 единицы
+        boolean cut = fitHint(f, w - 16 - 14);
         f.render(g, mx, my, 0);
-        if (f.getValue().isEmpty() && !f.isFocused()) {
+        boolean empty = f.getValue().isEmpty() && !f.isFocused();
+        if (empty) {
             float kx = x + w - 12, ky = y + (h - 8) / 2f;
             Draw.roundBox(g, kx, ky, 8, 8, 2f, t.c("filter.active.bg"), t.c("panel.border"));
             float sw = Draw.labelWidth("/", 10, Weight.MEDIUM);
             Draw.label(g, "/", kx + (8 - sw) / 2f, ky + 4, 10, Weight.MEDIUM, t.c("text.muted"));
         }
+        return cut && empty && Kit.over(mx, my, x, y, w, h);
     }
 
     /**

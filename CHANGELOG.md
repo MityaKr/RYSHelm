@@ -1,5 +1,11 @@
 # RYSHelm: история версий
 
+## 0.2.15 (24.11.2026)
+
+- Окно наказания: у списка «Пункт правил» одна рамка и одна стрелка. Раньше поверх кнопки списка рисовалась вторая рамка на всю ширину со второй стрелкой.
+- Подсказка поиска в шапке окна «Сервер» короче («Игрок, жалоба, журнал») и больше не заходит под плашку клавиши «/» в теме Slate. Подсказка любого поля окна, которая не помещается, обрезается многоточием; у поиска полная видна при наведении.
+- EN: Punish window: the "Rule" dropdown has one frame and one arrow; a second full-width frame with a second arrow was drawn over it. The search hint in the Server window header is shorter ("Player, report, journal") and no longer runs under the "/" key plate in the Slate theme; any field hint that does not fit ends with an ellipsis.
+
 ## 0.2.14 (24.11.2026)
 
 - Ядро RYSCore 1.18.0: в теме Vanilla Refined подсказки светлые, в цвет окна, вместо почти чёрных с фиолетовой рамкой; у переключателей с вариантами («Тема», «Размер интерфейса») выбранный вариант стоит с равным отступом со всех сторон на любом масштабе.

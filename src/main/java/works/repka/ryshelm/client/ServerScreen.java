@@ -102,7 +102,7 @@ public final class ServerScreen extends ScaledScreen {
     private Field field(int max, String hint, @Nullable Field old) {
         Field f = new Field(100, 10);
         f.setMaxLength(max);
-        f.setHint(Component.literal(hint));
+        Ui.hint(f, hint);
         f.setSpans(List.of(), new int[0]);
         if (old != null) f.setValue(old.getValue());
         addWidget(f);
@@ -259,7 +259,7 @@ public final class ServerScreen extends ScaledScreen {
         int tabsX = (int) Math.ceil(nameX + nameW + 9);
         Kit.tabs(g, t, hits, tabsX, py, HEAD, tabsEnd - tabsX, tabs, mx, my);
         // поиск, шестерёнка клавиш, закрыть
-        Ui.search(g, t, search, px + 425, py + 6, 125, 16, mx, my);
+        if (Ui.search(g, t, search, px + 425, py + 6, 125, 16, mx, my)) tooltip = List.of(tr("ui.hint.search"));
         int gx = px + 554;
         boolean hot = Kit.over(mx, my, gx, py + 6, 17, 17);
         Kit.iconButton(g, t, gx, py + 6, 17, hot);
@@ -958,13 +958,8 @@ public final class ServerScreen extends ScaledScreen {
         Ui.right(g, tr("ui.punish.reason.hint"), ix + iw, cy + 3, 11, Weight.REGULAR, t.c("text.muted"));
         cy += 10;
         String ruleLabel = punishRule > 0 ? punishRule + ". " + ruleTitle(punishRule) : tr("ui.no_rule");
-        int ddW = Kit.dropdown(g, t, hits, ruleDd, ix, cy, iw, ruleLabel, punishRule > 0, mx, my);
-        if (ddW < iw) {
-            // кнопка списка на всю ширину, как в макете
-            Draw.roundBorder(g, ix, cy, iw, Kit.DROP_H, 4f, t.c("panel.border"));
-            hits.add(ix, cy, iw, Kit.DROP_H, b -> ruleDd.open = !ruleDd.open);
-            Icons.draw(g, Icons.Shape.CHEVRON_DOWN, ix + iw - 10.5f, cy + 3.75f, 6.5f, t.c("text.secondary"));
-        }
+        // одна кнопка списка своей ширины, как везде в семье: прежняя рамка на всю ширину поверх неё давала рамку в рамке и две стрелки
+        Kit.dropdown(g, t, hits, ruleDd, ix, cy, iw, ruleLabel, punishRule > 0, mx, my);
         cy += 19;
         Ui.input(g, t, reason, ix, cy, iw, 26, mx, my);
         cy += 32;
