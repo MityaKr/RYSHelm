@@ -1,30 +1,110 @@
 # RYSHelm
 
-Окно «Сервер» для серверов на модах семьи RYS: кто в сети, правила, жалобы, журнал персонала, роли и наказания. Для серверов друзей ничего не мешает (правила при входе и новичок выключены), публичному серверу включается одной строкой.
+*Русская версия ниже: [по-русски](#по-русски).*
 
-## Что есть
+![The Server window with the player list](docs/screenshot.png)
 
-- **Роли:** оператор (уровень оператора игры 2 и выше), модератор (назначает оператор во вкладке «Роли», уровень оператора не нужен), игрок.
-- **Права:** узлы `ryshelm.*` и узлы других модов семьи (`rysmap.place.manage`, `rysclaims.bypass`…) в одной таблице. Если на сервере стоит LuckPerms, решает он, таблица показывает узлы для копирования.
-- **Наказания:** предупредить, заглушить, выгнать, бан на срок и навсегда. Модератор глушит до 1 дня и банит до 7 дней, навсегда только оператор (потолки меняются). Окно наказания подсказывает следующий шаг лестницы сервера. Бан ложится в обычный список игры: его видит `/pardon`.
-- **Жалобы:** игрок жалуется из списка игроков или командой `/report <игрок> <текст>`. К жалобе сами прикладываются место обоих, чья там земля и последние строки чата нарушителя. Автор узнаёт только, что жалоба рассмотрена.
-- **Журнал:** всё, что делает персонал, по месяцам в `world/ryshelm/journal-ГГГГ-ММ.jsonl`, хранится 90 дней.
-- **Правила при входе:** текст в `config/ryshelm/rules.md`, пункты нумерованы. Пока игрок не принял правила, он может ходить и читать чат.
-- **Персоналу:** карточка игрока, к игроку и позвать без запроса, наблюдать и вернуться, заморозить, инвентарь и сундук Края (модератору только смотреть), заметки, чат персонала `/sc`.
-- **Оператору:** вылечить, накормить, полёт, бессмертие, скорость, переставить игрока вне сети.
-- **Всем:** сундук Края и корзина в колесе, `/kickme`, наборы (`/rys kit`), отметка «отошёл» (`/rys afk`).
-- **Публичному серверу:** стартовый набор при первом входе, антиспам чата, белый список окном, выход по простою. Всё выключено по умолчанию и включается во вкладке «Настройки».
+**The Server window for those who run a server.** Players, roles and permissions, punishments, reports and a journal in one window. The main actions are also available as commands.
 
-## Где
+## Features
 
-Кнопка «Сервер» в панели семьи, действия в колесе (клавиша Ё), своя клавиша окна в настройках управления (без умолчания).
+- a player list with a player card and staff actions
+- three roles and a permissions table; LuckPerms decides permissions if it is installed
+- punishments with durations and a ladder
+- reports with the location, chat and the offender's history
+- a journal of staff actions
+- rules on join
+- kits, anti-spam, a whitelist and an "away" status
 
-## Команды
+The main actions are available as `/rys admin` commands, players report with `/report`.
 
-`/rys admin warn|mute|unmute|kick|ban|unban|history|note|tp|tphere|tplast|tpx|jump|spectate|back|freeze|invsee|enderchest|trash|kickme|heal|feed|extinguish|fly|god|speed|move|moderator|kits|journal|open|reload`, `/rys rules [accept]`, `/rys kit [имя]`, `/rys afk`, `/report`, `/sc`. Срок: `10m`, `1h`, `1d`, `7d`, `perm`. Пункт правил в начале причины: `п.3 мат в чате`.
+## Requirements
 
-Без FTB Essentials те же действия доступны прежними именами: `/mute`, `/unmute`, `/heal`, `/feed`, `/extinguish`, `/fly`, `/god`, `/speed`, `/invsee`, `/enderchest`, `/trashcan`, `/kickme`, `/kit`.
+- Minecraft 1.21.1, NeoForge 21.1.x, client and server.
+- No other mods required.
+- Languages: English and Russian.
 
-## Переезд с FTB Essentials
+## Download and help
 
-Шаг `admin` ядра переносит муты со сроками и последнее место игроков из `world/ftbessentials`. Идёт сам по флагу сборки или командой `/rys migrate run admin`, когда FTB Essentials убран. Файлы FTB не меняются.
+- Download: [CurseForge](https://www.curseforge.com/minecraft/mc-mods/ryshelm).
+- Help, ideas and questions: [Discord](https://discord.gg/Tqgy7acmyd).
+- Bugs: [GitHub Issues](https://github.com/MityaKr/RYSHelm/issues).
+
+## The RYS family
+
+RYSHelm is part of the RYS family of mods: one style, shared themes and settings. Each mod works on its own, and together they complement each other.
+
+- [RYSQuests](https://www.curseforge.com/minecraft/mc-mods/rysquests), a quest book with guides and a shop.
+- [RYSIndex](https://www.curseforge.com/minecraft/mc-mods/rysindex), a recipe viewer with crafting trees.
+- [RYSMap](https://www.curseforge.com/minecraft/mc-mods/rysmap), a world map and minimap.
+- [RYSClaims](https://www.curseforge.com/minecraft/mc-mods/rysclaims), chunk land claims.
+- [RYSTeams](https://www.curseforge.com/minecraft/mc-mods/rysteams), player teams with roles and alliances.
+
+## Building from source
+
+You need Java 21. The build takes the family's shared code from the [RYSCore](https://github.com/MityaKr/RYSCore) repository, which must sit next to this one and be published to its local `repo/` folder first:
+
+```
+git clone https://github.com/MityaKr/RYSCore
+git clone https://github.com/MityaKr/RYSHelm
+cd RYSCore && ./gradlew publish
+cd ../RYSHelm && ./gradlew build
+```
+
+The jar is in `build/libs`.
+
+## License
+
+The code is under [MPL-2.0](LICENSE). The graphics and the RYS name remain with the author, see [NOTICE.md](NOTICE.md). You can include the mod in any modpack without asking for permission.
+
+Author: MityaYS, RepkaWorks.
+
+---
+
+## По-русски
+
+**Окно «Сервер» для тех, кто ведёт сервер.** Игроки, роли и права, наказания, жалобы и журнал собраны в одном окне. Основные действия есть и командами.
+
+### Возможности
+
+- список игроков с карточкой и действиями персонала
+- три роли и таблица прав; если стоит LuckPerms, права решает он
+- наказания со сроками и лестницей
+- жалобы с местом, чатом и историей нарушителя
+- журнал действий персонала
+- правила при входе
+- наборы, антиспам, белый список и статус «отошёл»
+
+Основные действия есть командами `/rys admin`, игроки жалуются командой `/report`.
+
+### Требования
+
+- Minecraft 1.21.1, NeoForge 21.1.x, клиент и сервер.
+- Других модов не требует.
+- Языки: русский и английский.
+
+### Скачать и спросить
+
+- Скачать: [CurseForge](https://www.curseforge.com/minecraft/mc-mods/ryshelm).
+- Помощь, идеи и вопросы: [Discord](https://discord.gg/Tqgy7acmyd).
+- Баги: [GitHub Issues](https://github.com/MityaKr/RYSHelm/issues).
+
+### Семья RYS
+
+RYSHelm входит в семью модов RYS: один стиль, общие темы и настройки. Каждый мод работает сам по себе, а вместе они дополняют друг друга.
+
+- [RYSQuests](https://www.curseforge.com/minecraft/mc-mods/rysquests), книга квестов с гайдами и магазином.
+- [RYSIndex](https://www.curseforge.com/minecraft/mc-mods/rysindex), справочник рецептов с деревом крафта.
+- [RYSMap](https://www.curseforge.com/minecraft/mc-mods/rysmap), карта мира и миникарта.
+- [RYSClaims](https://www.curseforge.com/minecraft/mc-mods/rysclaims), приват земли по чанкам.
+- [RYSTeams](https://www.curseforge.com/minecraft/mc-mods/rysteams), команды игроков с ролями и союзами.
+
+### Сборка из исходников
+
+Нужна Java 21. Общий код семьи сборка берёт из репозитория [RYSCore](https://github.com/MityaKr/RYSCore): он должен лежать рядом с этим и сначала выложиться в свою папку `repo/` командой `gradlew publish` (команды выше). Готовый jar лежит в `build/libs`.
+
+### Лицензия
+
+Код под [MPL-2.0](LICENSE), графика и имя RYS остаются за автором, подробности в [NOTICE.md](NOTICE.md). Мод можно включать в любую сборку без отдельного разрешения.
+
+Автор: MityaYS, RepkaWorks.
