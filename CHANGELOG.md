@@ -1,5 +1,11 @@
 # RYSHelm: история версий
 
+## 0.2.13 (24.11.2026)
+
+- Роль игрока на клиенте обновляется сразу после ванильных `/op` и `/deop`: колесо и окно «Сервер» показывают кольцо «Оператор» и вкладки персонала по новой роли. Раньше роль приходила только при входе, и снятый оператор до перезахода видел их (сервер его действия всё равно отклонял). Найдено проверкой 24.11 на тестовой копии.
+- Ядро RYSCore 1.17.3 (поля ввода в теме vanilla в кегле макета).
+- EN: The client learns a new role right after vanilla `/op` and `/deop`: the wheel and the Server window show the Operator ring and the staff tabs by the new role. Before, the role came only on login, so a de-opped player saw them until relogging (the server still rejected the actions). RYSCore 1.17.3.
+
 ## 0.2.12 (24.11.2026)
 
 - `/rys admin journal` пишет действие словами, как окно «Сервер»: «Dev собрал набор check1123» вместо «Dev kit_create check1123». Окно и команда строят строку журнала одним кодом, на языке читателя, старые записи тоже.

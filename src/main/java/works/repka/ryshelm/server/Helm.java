@@ -200,6 +200,7 @@ public final class Helm {
         ticks++;
         Staff.tick(server);
         Requests.tick(server);
+        Sync.flushHello(server);
         if (ticks % 20 == 0) {
             flushJournal();
             Afk.tick(server);

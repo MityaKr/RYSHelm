@@ -58,6 +58,10 @@ public final class RYSHelm {
         bus.addListener((PlayerEvent.PlayerLoggedOutEvent e) -> {
             if (e.getEntity() instanceof ServerPlayer p && Helm.running()) Helm.logout(p);
         });
+        // ванильные /op и /deop: событие приходит до смены уровня, роль клиенту уходит на следующем тике
+        bus.addListener(EventPriority.LOWEST, false, net.neoforged.neoforge.event.entity.player.PermissionsChangedEvent.class, e -> {
+            if (e.getEntity() instanceof ServerPlayer p && Helm.running()) works.repka.ryshelm.server.Sync.helloNextTick(p);
+        });
         // первыми: заглушение и чат персонала гасят строку раньше каналов RYSTeams
         bus.addListener(EventPriority.HIGHEST, false, ServerChatEvent.class, Chat::onChat);
         bus.addListener(EventPriority.HIGHEST, false, CommandEvent.class, Chat::onCommand);

@@ -4,8 +4,10 @@ import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
@@ -182,6 +184,27 @@ public final class Sync {
 
     /** Наказания, роли, жалобы поменялись: открытым окнам заново. */
     public static void staffChanged() {
+        changed = true;
+    }
+
+    private static final Set<UUID> HELLO_NEXT_TICK = new HashSet<>();
+
+    /**
+     * Роль игрока сменилась мимо RYSHelm (ванильные {@code /op} и {@code /deop}): приветствие с новой ролью уйдёт на следующем
+     * тике, когда уровень оператора уже поменяется. Раньше клиент узнавал роль только при входе, и снятый оператор до
+     * перезахода видел кольцо «Оператор» и вкладки персонала (сервер его действия и так отклонял).
+     */
+    public static void helloNextTick(ServerPlayer p) {
+        HELLO_NEXT_TICK.add(p.getUUID());
+    }
+
+    static void flushHello(MinecraftServer server) {
+        if (HELLO_NEXT_TICK.isEmpty()) return;
+        for (UUID id : HELLO_NEXT_TICK) {
+            ServerPlayer p = server.getPlayerList().getPlayer(id);
+            if (p != null) hello(p);
+        }
+        HELLO_NEXT_TICK.clear();
         changed = true;
     }
 
